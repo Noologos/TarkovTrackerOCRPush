@@ -7,6 +7,9 @@ const postCompletedTasksButton = document.getElementById('post-completed-tasks-b
 // Constant to control Developer Mode (true for ON, false for OFF)
 const IS_DEV_MODE = false; // Set to false as requested, now managed internally
 
+// Delay in milliseconds between each TarkovTracker API post request
+const POST_DELAY_MS = 500; // 500ms delay
+
 let discriminantImage1 = null; // Stores the first discriminant image data
 let discriminantImage2 = null; // Stores the second discriminant image data
 let tarkovTasksData = []; // Store the fetched Tarkov tasks data
@@ -197,6 +200,11 @@ taskNames.forEach(taskName => {
     });
 
     function handlePaste(event) {
+        // Check if the focused element is one of the task containers
+        if (!event.target.closest('.task-container')) {
+            return; // Ignore paste if not within a task container
+        }
+
         const items = event.clipboardData.items;
         for (let i = 0; i < items.length; i++) {
             // Check if the item is an image
@@ -206,15 +214,23 @@ taskNames.forEach(taskName => {
                     // Create a DataTransfer object to simulate file input change
                     const dataTransfer = new DataTransfer();
                     dataTransfer.items.add(blob);
-                    fileInput.files = dataTransfer.files;
 
-                    // Trigger the change event on the file input
-                    const changeEvent = new Event('change', { bubbles: true });
-                    fileInput.dispatchEvent(changeEvent);
+                    // Find the file input within the currently focused task container
+                    const focusedTaskContainer = event.target.closest('.task-container');
+                    if (focusedTaskContainer) {
+                        const fileInput = focusedTaskContainer.querySelector('input[type="file"]');
+                        if (fileInput) {
+                            fileInput.files = dataTransfer.files;
 
-                    // Prevent the default paste action (e.g., pasting into a text field if one is focused)
-                    event.preventDefault();
-                    break; // Stop processing after finding the first image
+                            // Trigger the change event on the file input
+                            const changeEvent = new Event('change', { bubbles: true });
+                            fileInput.dispatchEvent(changeEvent);
+
+                            // Prevent the default paste action (e.g., pasting into a text field if one is focused)
+                            event.preventDefault();
+                            break; // Stop processing after finding the first image
+                        }
+                    }
                 }
             }
         }
@@ -1190,6 +1206,17 @@ postCompletedTasksButton.addEventListener('click', async () => {
 
     let tasksPostedCount = 0;
     let tasksFailedCount = 0;
+    let totalTasksToPost = 0;
+
+    // Calculate total tasks to post first
+    taskNames.forEach(taskName => {
+        const task = tasks[taskName];
+        if (task.identifiedCompletedTaskIds) {
+            totalTasksToPost += task.identifiedCompletedTaskIds.size;
+        }
+    });
+
+    let tasksProcessed = 0;
 
     for (const taskName of taskNames) {
         const task = tasks[taskName];
@@ -1210,10 +1237,12 @@ postCompletedTasksButton.addEventListener('click', async () => {
                         body: body
                     });
 
+                    tasksProcessed++;
+
                     if (response.ok) {
                         console.log(`Successfully posted task ${taskId} as completed.`);
                         tasksPostedCount++;
-                        // Optionally update the task's status div or output area
+                        globalStatusDiv.textContent = `Posting completed tasks to TarkovTracker... (${tasksProcessed}/${totalTasksToPost} tasks processed)`;
                          if (task.outputArea) {
                              task.outputArea.value += `\nPosted task ${taskId} as completed to TarkovTracker.`;
                          }
@@ -1221,6 +1250,7 @@ postCompletedTasksButton.addEventListener('click', async () => {
                         const errorText = await response.text();
                         console.error(`Failed to post task ${taskId}. Status: ${response.status}. Response: ${errorText}`);
                         tasksFailedCount++;
+                        globalStatusDiv.textContent = `Posting completed tasks to TarkovTracker... (${tasksProcessed}/${totalTasksToPost} tasks processed) - Failed: ${tasksFailedCount}`;
                          if (task.outputArea) {
                              task.outputArea.value += `\nFailed to post task ${taskId}. Status: ${response.status}.`;
                          }
@@ -1228,9 +1258,16 @@ postCompletedTasksButton.addEventListener('click', async () => {
                 } catch (error) {
                     console.error(`Error during fetch for task ${taskId}:`, error);
                     tasksFailedCount++;
+                    tasksProcessed++; // Ensure processed count is incremented even on fetch error
+                    globalStatusDiv.textContent = `Posting completed tasks to TarkovTracker... (${tasksProcessed}/${totalTasksToPost} tasks processed) - Failed: ${tasksFailedCount}`;
                      if (task.outputArea) {
                          task.outputArea.value += `\nError posting task ${taskId}: ${error.message}`;
                      }
+                }
+
+                // Add a delay between requests
+                if (tasksProcessed < totalTasksToPost) {
+                    await new Promise(resolve => setTimeout(resolve, POST_DELAY_MS));
                 }
             }
         }
