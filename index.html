@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Text (OCR) for Multiple Tasks</title>
+    <style>
+        /* Basic Reset and Body Styling */
+        body {
+            font-family: 'Inter', sans-serif; /* Modern font */
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #121212; /* Very dark background */
+            color: #e0e0e0; /* Light text */
+            transition: background-color 0.3s ease, color 0.3s ease;
+            /* Removed user-select: none; to allow copy-pasting */
+        }
+
+        /* Main Container */
+        .container {
+            background-color: #1e1e1e; /* Slightly lighter dark background for container */
+            padding: 30px;
+            border-radius: 12px; /* More rounded corners */
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5); /* Stronger, darker shadow */
+            text-align: center;
+            width: 100%; /* Allow wider layout */
+            max-width: 1200px; /* Max width for larger screens */
+            margin-bottom: 20px; /* Space below the container */
+        }
+
+        /* Headings */
+        h1, h2, h3 {
+            color: #ffffff; /* White color for headings */
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 2.5em; /* Larger main heading */
+            font-weight: 700;
+        }
+
+         h2 {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 10px;
+         }
+
+         h3 {
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-align: left; /* Align task names to the left */
+         }
+
+        /* Global Controls Area */
+        #global-controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #282828; /* Darker background for controls */
+            border-radius: 8px;
+            display: flex; /* Use flexbox for layout */
+            flex-direction: column; /* Stack elements vertically */
+            align-items: center; /* Center items horizontally */
+            gap: 15px; /* Space between items */
+        }
+
+         #global-controls label {
+             font-size: 1em;
+             font-weight: bold;
+             color: #b0b0b0; /* Lighter gray for labels */
+         }
+
+         #global-controls input[type="checkbox"] {
+             margin-left: 5px;
+             cursor: pointer;
+         }
+
+         /* API Key Input Styling */
+         #api-key-container {
+             width: 100%; /* Full width */
+             text-align: left; /* Align label to the left */
+             margin-bottom: 10px; /* Space below the input */
+         }
+
+         #api-key-container label {
+             display: block; /* Label on its own line */
+             margin-bottom: 5px;
+             font-weight: bold;
+             color: #b0b0b0;
+         }
+
+         #api-key-container input[type="text"] {
+             width: 100%;
+             padding: 8px;
+             border: 1px solid #444;
+             border-radius: 4px;
+             background-color: #333;
+             color: #e0e0e0;
+             box-sizing: border-box; /* Include padding and border in element's total width */
+         }
+
+        /* Style for the link within the API key label */
+         #api-key-container label a {
+             color: #007bff; /* Blue link color */
+             text-decoration: none; /* Remove default underline */
+             font-weight: normal; /* Don't make the link bold */
+             transition: color 0.2s ease;
+         }
+
+         #api-key-container label a:hover {
+             color: #0056b3; /* Darker blue on hover */
+             text-decoration: underline; /* Add underline on hover */
+         }
+
+
+        /* Button Styling */
+        button {
+            background-color: #007bff; /* Standard blue */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Add shadow */
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #0056b3; /* Darker blue on hover */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+
+        button:active:not(:disabled) {
+            background-color: #004085; /* Even darker blue on active */
+            transform: translateY(0); /* Press down effect */
+        }
+
+        button:disabled {
+            background-color: #444; /* Darker gray for disabled */
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* File Input Styling */
+        .file-input-container {
+            margin-bottom: 15px;
+            text-align: left; /* Align file input label to the left */
+            width: 100%; /* Full width */
+        }
+
+        .file-input-container label {
+            display: block; /* Label on its own line */
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #b0b0b0; /* Lighter gray for labels */
+        }
+
+        input[type="file"]::file-selector-button {
+            background-color: #555; /* Dark gray button */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-right: 15px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        input[type="file"]::file-selector-button:hover {
+            background-color: #666; /* Slightly lighter gray on hover */
+        }
+
+        /* Status Display */
+        #global-status {
+            margin-top: 20px;
+            font-size: 1.1em;
+            color: #b0b0b0; /* Lighter gray for status */
+            min-height: 1.5em; /* Reserve space to prevent layout shifts */
+        }
+
+        /* Task Grid Layout */
+        #task-images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */
+            gap: 20px; /* Space between task containers */
+            width: 100%;
+        }
+
+        /* Individual Task Container */
+        .task-container {
+            background-color: #282828; /* Darker background for task containers */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            text-align: left; /* Align content to the left */
+            display: flex; /* Use flexbox */
+            flex-direction: column; /* Stack children vertically */
+            gap: 10px; /* Space between elements in the container */
+        }
+
+        /* Canvas Styling */
+        .canvas-container {
+            display: flex; /* Arrange canvases side-by-side in dev mode */
+            gap: 10px; /* Space between canvases */
+            margin-bottom: 10px;
+             justify-content: center; /* Center canvases horizontally */
+        }
+
+        .task-canvas {
+            border: 1px solid #444; /* Darker border */
+            background-color: #333; /* Even darker background for canvas */
+            max-width: 100%; /* Ensure canvas is responsive */
+            height: auto; /* Maintain aspect ratio */
+            border-radius: 4px;
+        }
+
+        /* Task Status */
+        .task-status {
+            font-size: 0.9em;
+            color: #b0b0b0; /* Lighter gray */
+            min-height: 1.2em; /* Reserve space */
+        }
+
+        /* OCR Output Area */
+        .task-output {
+            width: 100%;
+            height: 150px; /* Fixed height */
+            background-color: #333; /* Dark background */
+            color: #e0b0b0; /* Light text */
+            border: 1px solid #444; /* Darker border */
+            border-radius: 4px;
+            padding: 10px;
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; /* Monospace font for output */
+            resize: vertical; /* Allow vertical resizing */
+            box-sizing: border-box; /* Include padding and border in element's total width and height */
+        }
+
+        /* Collapsible Headers */
+         .collapsible-header {
+             background-color: #3a3a3a; /* Slightly lighter dark for headers */
+             color: #ffffff;
+             cursor: pointer;
+             padding: 10px;
+             border-radius: 4px;
+             margin-top: 5px; /* Space above header */
+             transition: background-color 0.2s ease;
+             font-weight: bold;
+             text-align: center;
+         }
+
+         .collapsible-header:hover {
+             background-color: #4a4a4a; /* Darker hover effect */
+         }
+
+         .collapsible-header.active + .collapsible-content {
+             display: block; /* Show content when active */
+         }
+
+         /* Collapsible Content */
+         .collapsible-content {
+             display: none; /* Hidden by default */
+             padding: 10px 0; /* Padding top/bottom, no side padding */
+         }
+
+         /* Wiki Links Styling */
+         .wiki-links ul {
+             list-style: none;
+             padding: 0;
+             margin: 0;
+         }
+
+         .wiki-links li {
+             margin-bottom: 5px;
+         }
+
+         .wiki-links a {
+             color: #007bff; /* Blue links */
+             text-decoration: none;
+             transition: color 0.2s ease;
+         }
+
+         .wiki-links a:hover {
+             color: #0056b3; /* Darker blue on hover */
+             text-decoration: underline;
+         }
+
+         /* Required Tasks Styling */
+         .required-tasks ul {
+             list-style: disc inside; /* Bullet points */
+             padding-left: 15px; /* Indent list */
+             margin: 0;
+         }
+
+         .required-tasks li {
+             margin-bottom: 3px;
+         }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+             h2 {
+                font-size: 1.5em;
+            }
+             h3 {
+                font-size: 1.2em;
+             }
+             button {
+                padding: 12px 20px;
+             }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+             h2 {
+                font-size: 1.2em;
+            }
+             button {
+                width: 100%; /* Full width button on very small screens */
+                padding: 12px 20px;
+             }
+             input[type="file"]::file-selector-button {
+                 margin-right: 10px;
+                 padding: 6px 10px;
+             }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://docs.opencv.org/4.x/opencv.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Image to Text (OCR) for Multiple Tasks</h1>
+
+        <div id="global-controls">
+             <div id="api-key-container">
+                 <label for="api-key-input">Tarkov Tracker Token (<a href="https://tarkovtracker.io/settings" target="_blank" rel="noopener noreferrer">Find your token here</a>):</label>
+                 <input type="text" id="api-key-input" placeholder="Enter API Key">
+             </div>
+             <button id="process-all-tasks" disabled>Process All Uploaded Images</button>
+             <button id="post-completed-tasks-button" disabled>Post Completed Tasks to TarkovTracker</button>
+        </div>
+
+
+        <div id="global-status">Loading dependencies...</div>
+
+        <div id="task-images-grid">
+            </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
