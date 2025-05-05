@@ -112,8 +112,7 @@ function matchOcrLineToTask(ocrLine, tarkovTasksData, traderName) {
 
 function createTaskHtml(taskName) {
     return `
-        <div class="task-container" id="task-${taskName.toLowerCase()}">
-            <h3>${taskName}</h3>
+        <div class="task-container" id="task-${taskName.toLowerCase()}" tabindex="0"> <h3>${taskName}</h3>
             <div class="file-input-container">
                 <label for="upload-${taskName.toLowerCase()}">Upload Image:</label>
                 <input type="file" id="upload-${taskName.toLowerCase()}" accept="image/*">
@@ -184,8 +183,44 @@ taskNames.forEach(taskName => {
     tasks[taskName].requiredTasksHeader = taskElement.querySelector('.collapsible-header[data-target="required-tasks-' + taskName.toLowerCase() + '"]');
     tasks[taskName].requiredTasksContent = taskElement.querySelector('.collapsible-content#required-tasks-' + taskName.toLowerCase());
 
-
     const fileInput = taskElement.querySelector('input[type="file"]');
+
+    // --- Paste functionality ---
+    taskElement.addEventListener('focus', () => {
+        // Add paste listener when the task container is focused
+        document.addEventListener('paste', handlePaste);
+    });
+
+    taskElement.addEventListener('blur', () => {
+        // Remove paste listener when the task container loses focus
+        document.removeEventListener('paste', handlePaste);
+    });
+
+    function handlePaste(event) {
+        const items = event.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            // Check if the item is an image
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    // Create a DataTransfer object to simulate file input change
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(blob);
+                    fileInput.files = dataTransfer.files;
+
+                    // Trigger the change event on the file input
+                    const changeEvent = new Event('change', { bubbles: true });
+                    fileInput.dispatchEvent(changeEvent);
+
+                    // Prevent the default paste action (e.g., pasting into a text field if one is focused)
+                    event.preventDefault();
+                    break; // Stop processing after finding the first image
+                }
+            }
+        }
+    }
+    // --- End Paste functionality ---
+
 
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
