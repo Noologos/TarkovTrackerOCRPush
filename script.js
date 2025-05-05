@@ -1,31 +1,23 @@
 const globalStatusDiv = document.getElementById('global-status');
 const taskImagesGrid = document.getElementById('task-images-grid');
 const processAllButton = document.getElementById('process-all-tasks');
-const apiKeyInput = document.getElementById('api-key-input'); // Get the API key input element
-const postCompletedTasksButton = document.getElementById('post-completed-tasks-button'); // Get the new button
+const apiKeyInput = document.getElementById('api-key-input');
+const postCompletedTasksButton = document.getElementById('post-completed-tasks-button');
 
-// Constant to control Developer Mode (true for ON, false for OFF)
-const IS_DEV_MODE = false; // Set to false as requested, now managed internally
+const IS_DEV_MODE = false;
 
-// Delay in milliseconds between each TarkovTracker API post request
-const POST_DELAY_MS = 500; // 500ms delay
+let discriminantImage1 = null;
+let discriminantImage2 = null;
+let tarkovTasksData = [];
+let taskTree = {};
+let fuse;
 
-let discriminantImage1 = null; // Stores the first discriminant image data
-let discriminantImage2 = null; // Stores the second discriminant image data
-let tarkovTasksData = []; // Store the fetched Tarkov tasks data
-let taskTree = {}; // Object to store the task dependency tree
-let fuse; // Declare fuse variable here
-
-// Paths to the discriminant images
 const DISCRIMINANT_IMAGE_PATHS = ['discriminant.png', 'discriminant2.png'];
 
-// List of task names (these correspond to trader names for matching)
 const taskNames = ["Prapor", "Therapist", "Skier", "Peacekeeper", "Mechanic", "Ragman", "Jaeger", "Ref"];
 
-// Object to store data for each task
 const tasks = {};
 
-// --- Save/Load API Key using localStorage ---
 const API_KEY_STORAGE_KEY = 'tarkov_dev_api_key';
 
 function saveApiKey(key) {
@@ -40,7 +32,6 @@ function loadApiKey() {
     return localStorage.getItem(API_KEY_STORAGE_KEY);
 }
 
-// Load the API key when the page loads
 window.addEventListener('load', () => {
     const savedApiKey = loadApiKey();
     if (apiKeyInput && savedApiKey) {
@@ -48,74 +39,59 @@ window.addEventListener('load', () => {
     }
 });
 
-// Save the API key whenever the input field changes
 if (apiKeyInput) {
     apiKeyInput.addEventListener('input', (event) => {
         saveApiKey(event.target.value);
-        checkIfReady(); // Check button state when API key changes
+        checkIfReady();
     });
 }
-// --- End Save/Load API Key ---
-
 
 function cleanStringForMatching(str) {
-    // Keep hyphens for task names like "Gendarmerie-MallCop"
     return str.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim();
 }
 
-// --- Match a Single OCR Line to a Task (Fuzzy Match using Fuse.js) ---
-// Finds the best matching Tarkov task for a single OCR extracted line
-// using Fuse.js for fuzzy matching.
-// Returns the best matching task object or null if no satisfactory match found.
 function matchOcrLineToTask(ocrLine, tarkovTasksData, traderName) {
     const cleanedOcrLine = cleanStringForMatching(ocrLine);
 
     if (cleanedOcrLine.length === 0 || !fuse) {
-        return null; // Cannot perform fuzzy match without cleaned line or initialized fuse
+        return null;
     }
 
-    // Fuse.js options for fuzzy matching
     const options = {
-        keys: ['name'], // Search in the 'name' property of task objects
-        includeScore: true, // Include the matching score in the results
-        threshold: 0.4, // Adjust this threshold (0 is perfect match, 1 is no match)
-        ignoreLocation: true, // Don't penalize matches based on location in the string
-        distance: 100, // Consider matches up to this distance (in characters)
-        isCaseSensitive: false, // Case-insensitive matching
-        findAllMatches: false, // Only find the best match
-        minMatchCharLength: 3 // Minimum number of characters to match
+        keys: ['name'],
+        includeScore: true,
+        threshold: 0.4,
+        ignoreLocation: true,
+        distance: 100,
+        isCaseSensitive: false,
+        findAllMatches: false,
+        minMatchCharLength: 3
     };
 
-    // Filter tasks by trader before searching
     const relevantTasks = tarkovTasksData.filter(task =>
         task.trader && cleanStringForMatching(task.trader.name) === cleanStringForMatching(traderName)
     );
 
     if (relevantTasks.length === 0) {
-        return null; // No tasks for this trader
+        return null;
     }
 
-    // Create a new Fuse instance for the relevant tasks
     const traderFuse = new Fuse(relevantTasks, options);
 
-    // Perform the fuzzy search
     const result = traderFuse.search(cleanedOcrLine);
 
-    // Return the best match if one is found and its score is within the threshold
     if (result.length > 0 && result[0].score <= options.threshold) {
-        // Fuse.js returns an array of results, the best match is the first one
-        // result[0].item is the original task object
-        // result[0].score is the matching score (lower is better)
         return { task: result[0].item, score: result[0].score };
     } else {
-        return null; // No satisfactory match found
+        return null;
     }
 }
 
 
 function createTaskHtml(taskName) {
     return `
-        <div class="task-container" id="task-${taskName.toLowerCase()}" tabindex="0"> <h3>${taskName}</h3>
+        <div class="task-container" id="task-${taskName.toLowerCase()}">
+            <h3>${taskName}</h3>
             <div class="file-input-container">
                 <label for="upload-${taskName.toLowerCase()}">Upload Image:</label>
                 <input type="file" id="upload-${taskName.toLowerCase()}" accept="image/*">
@@ -158,14 +134,14 @@ taskNames.forEach(taskName => {
         discriminant2Rect: null,
         ocrRect: null,
         wikiLinksDiv: null,
-        outputHeader: null, // Reference to the OCR Output header
-        outputContent: null, // Reference to the OCR Output content div
-        wikiHeader: null, // Reference to the Wiki Links header
-        wikiContent: null, // Reference to the Wiki Links content div
-        requiredTasksDiv: null, // Reference to the Required Tasks div
-        requiredTasksHeader: null, // Reference to the Required Tasks header
-        requiredTasksContent: null, // Reference to the Required Tasks content div
-        identifiedCompletedTaskIds: new Set() // Set to store IDs of tasks identified as completed for this container
+        outputHeader: null,
+        outputContent: null,
+        wikiHeader: null,
+        wikiContent: null,
+        requiredTasksDiv: null,
+        requiredTasksHeader: null,
+        requiredTasksContent: null,
+        identifiedCompletedTaskIds: new Set()
     };
 });
 
@@ -186,57 +162,8 @@ taskNames.forEach(taskName => {
     tasks[taskName].requiredTasksHeader = taskElement.querySelector('.collapsible-header[data-target="required-tasks-' + taskName.toLowerCase() + '"]');
     tasks[taskName].requiredTasksContent = taskElement.querySelector('.collapsible-content#required-tasks-' + taskName.toLowerCase());
 
+
     const fileInput = taskElement.querySelector('input[type="file"]');
-
-    // --- Paste functionality ---
-    taskElement.addEventListener('focus', () => {
-        // Add paste listener when the task container is focused
-        document.addEventListener('paste', handlePaste);
-    });
-
-    taskElement.addEventListener('blur', () => {
-        // Remove paste listener when the task container loses focus
-        document.removeEventListener('paste', handlePaste);
-    });
-
-    function handlePaste(event) {
-        // Check if the focused element is one of the task containers
-        if (!event.target.closest('.task-container')) {
-            return; // Ignore paste if not within a task container
-        }
-
-        const items = event.clipboardData.items;
-        for (let i = 0; i < items.length; i++) {
-            // Check if the item is an image
-            if (items[i].type.indexOf('image') !== -1) {
-                const blob = items[i].getAsFile();
-                if (blob) {
-                    // Create a DataTransfer object to simulate file input change
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(blob);
-
-                    // Find the file input within the currently focused task container
-                    const focusedTaskContainer = event.target.closest('.task-container');
-                    if (focusedTaskContainer) {
-                        const fileInput = focusedTaskContainer.querySelector('input[type="file"]');
-                        if (fileInput) {
-                            fileInput.files = dataTransfer.files;
-
-                            // Trigger the change event on the file input
-                            const changeEvent = new Event('change', { bubbles: true });
-                            fileInput.dispatchEvent(changeEvent);
-
-                            // Prevent the default paste action (e.g., pasting into a text field if one is focused)
-                            event.preventDefault();
-                            break; // Stop processing after finding the first image
-                        }
-                    }
-                }
-            }
-        }
-    }
-    // --- End Paste functionality ---
-
 
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -257,24 +184,20 @@ taskNames.forEach(taskName => {
             tasks[taskName].discriminant1Rect = null;
             tasks[taskName].discriminant2Rect = null;
             tasks[taskName].ocrRect = null;
-            tasks[taskName].identifiedCompletedTaskIds.clear(); // Clear identified task IDs on new upload
+            tasks[taskName].identifiedCompletedTaskIds.clear();
 
 
              if (tasks[taskName].outputArea) {
                  tasks[taskName].outputArea.value = '';
-                 // Output area visibility based on IS_DEV_MODE is handled after processing
              } else {
                  console.error(`Error: task.outputArea is undefined for task ${taskName} during file upload.`);
              }
-             // Clear and hide wiki links on new image upload
              if (tasks[taskName].wikiLinksDiv) {
                  tasks[taskName].wikiLinksDiv.innerHTML = '';
              }
-              // Clear and hide required tasks on new image upload
-             if (tasks[taskName].requiredTasksDiv) {
+              if (tasks[taskName].requiredTasksDiv) {
                  tasks[taskName].requiredTasksDiv.innerHTML = '';
              }
-             // Collapse content sections on new image upload
              if (tasks[taskName].outputContent) {
                  tasks[taskName].outputContent.classList.remove('active');
                  tasks[taskName].outputHeader.classList.remove('active');
@@ -290,7 +213,6 @@ taskNames.forEach(taskName => {
         });
     });
 
-    // Add click listeners to collapsible headers
     if (tasks[taskName].outputHeader && tasks[taskName].outputContent) {
         tasks[taskName].outputHeader.addEventListener('click', () => {
             tasks[taskName].outputContent.classList.toggle('active');
@@ -338,9 +260,8 @@ function drawTaskImageOnCanvas(taskName) {
          if (ocrRight < width) {
               ctx.fillRect(ocrRight, 0, width - ocrRight, height);
          }
-         // Draw red overlay below the OCR region (the ignored bottom 10%)
          const ocrBottom = task.ocrRect.top + task.ocrRect.height;
-         if (ocrBottom < height) { // Check if there's space below the OCR rect
+         if (ocrBottom < height) {
               ctx.fillRect(0, ocrBottom, width, height - ocrBottom);
          }
      }
@@ -394,24 +315,20 @@ function loadImageFromUrl(url, callback) {
      img.src = url;
 }
 
-// --- Task Tree Building ---
 function buildTaskTree(tasksData) {
-    const tree = {}; // Map task ID to its object and requirements
+    const tree = {};
 
-    // Populate the tree with all tasks
     tasksData.forEach(task => {
         tree[task.id] = {
-            ...task, // Copy task properties
-            requiredBy: [] // Add a list to store tasks that require this one
+            ...task,
+            requiredBy: []
         };
     });
 
-    // Link tasks to their requirements and build the 'requiredBy' list
     tasksData.forEach(task => {
         if (task.taskRequirements && task.taskRequirements.length > 0) {
             task.taskRequirements.forEach(req => {
                 if (req.task && tree[req.task.id]) {
-                     // Add this task to the 'requiredBy' list of its prerequisite
                     if (!tree[req.task.id].requiredBy.some(t => t.id === task.id)) {
                          tree[req.task.id].requiredBy.push({ id: task.id, name: task.name });
                     }
@@ -423,57 +340,54 @@ function buildTaskTree(tasksData) {
     return tree;
 }
 
-// --- Get Required Completed Tasks ---
 function getRequiredCompletedTasks(identifiedTaskIds, taskTree) {
     const requiredTasks = new Set();
-    const visited = new Set(); // To prevent infinite loops in case of circular dependencies
+    const visited = new Set();
 
     function traverseRequirements(taskId) {
         if (visited.has(taskId)) {
-            return; // Already visited this task
+            return;
         }
         visited.add(taskId);
 
         const task = taskTree[taskId];
         if (!task) {
-            return; // Task not found in the tree
+            return;
         }
 
         if (task.taskRequirements && task.taskRequirements.length > 0) {
             task.taskRequirements.forEach(req => {
                 if (req.task && taskTree[req.task.id]) {
-                    requiredTasks.add(req.task.id); // Add the prerequisite to the set
-                    traverseRequirements(req.task.id); // Recursively traverse its requirements
+                    requiredTasks.add(req.task.id);
+                    traverseRequirements(req.task.id);
                 }
             });
         }
     }
 
-    // Start traversal from each identified task
     identifiedTaskIds.forEach(taskId => {
         traverseRequirements(taskId);
     });
 
-    // Convert the set of required task IDs back to task objects
     const completedTasksList = Array.from(requiredTasks)
         .map(taskId => taskTree[taskId])
-        .filter(task => task !== undefined); // Filter out any potential undefined entries
+        .filter(task => task !== undefined);
 
     return completedTasksList;
 }
 
 
 async function fetchTarkovTasks() {
-    globalStatusDiv.textContent = 'Fetching task data...'; // Keep this message
+    globalStatusDiv.textContent = 'Fetching task data...';
     const query = `
         {
             tasks(lang: en) {
                 name
-                id # Fetch task ID
+                id
                 taskRequirements {
                     task {
                         name
-                        id # Fetch prerequisite task ID
+                        id
                     }
                     status
                 }
@@ -485,7 +399,7 @@ async function fetchTarkovTasks() {
         }
     `;
 
-    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : ''; // Get API key from input
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
     const headers = {
         'Content-Type': 'application/json',
@@ -493,13 +407,13 @@ async function fetchTarkovTasks() {
     };
 
     if (apiKey) {
-        headers['x-api-key'] = apiKey; // Add API key to headers if present
+        headers['x-api-key'] = apiKey;
     }
 
     try {
         const response = await fetch('https://api.tarkov.dev/graphql', {
             method: 'POST',
-            headers: headers, // Use the headers object
+            headers: headers,
             body: JSON.stringify({ query })
         });
 
@@ -507,38 +421,34 @@ async function fetchTarkovTasks() {
 
         if (data.errors) {
             console.error('GraphQL errors:', data.errors);
-            globalStatusDiv.textContent = 'Error fetching task data. Check console.'; // Keep this error message
+            globalStatusDiv.textContent = 'Error fetching task data. Check console.';
             return null;
         }
 
         tarkovTasksData = data.data.tasks;
         console.log('Tarkov task data fetched:', tarkovTasksData);
 
-        // Initialize Fuse.js with the fetched task data
-        // Note: We initialize Fuse with ALL tasks here, filtering by trader is done in matchOcrLineToTask
         fuse = new Fuse(tarkovTasksData, {
-             keys: ['name'], // Search in the 'name' property of task objects
-             includeScore: true, // Include the matching score in the results
-             threshold: 0.4, // Adjust this threshold (0 is perfect match, 1 is no match)
-             ignoreLocation: true, // Don't penalize matches based on location in the string
-             distance: 100, // Consider matches up to this distance (in characters)
-             isCaseSensitive: false, // Case-insensitive matching
-             findAllMatches: false, // Only find the best match
-             minMatchCharLength: 3 // Minimum number of characters to match
+             keys: ['name'],
+             includeScore: true,
+             threshold: 0.4,
+             ignoreLocation: true,
+             distance: 100,
+             isCaseSensitive: false,
+             findAllMatches: false,
+             minMatchCharLength: 3
         });
         console.log('Fuse.js initialized with Tarkov task data.');
 
-
-        // Build the task tree after fetching data
         taskTree = buildTaskTree(tarkovTasksData);
         console.log('Task tree built:', taskTree);
 
-        checkIfReady(); // Check if button should be enabled after data is loaded
+        checkIfReady();
         return tarkovTasksData;
 
     } catch (error) {
         console.error('Error fetching Tarkov task data:', error);
-        globalStatusDiv.textContent = 'Error fetching task data. Check console.'; // Keep this error message
+        globalStatusDiv.textContent = 'Error fetching task data. Check console.';
         return null;
     }
 }
@@ -548,21 +458,17 @@ function checkIfReady() {
     const anyTaskMatched = taskNames.some(taskName => tasks[taskName].identifiedCompletedTaskIds.size > 0);
     const apiKeyPresent = apiKeyInput && apiKeyInput.value.trim() !== '';
 
-    // Enable Process All button if Tarkov data is loaded AND at least one image is uploaded AND fuse is initialized
     if (tarkovTasksData.length > 0 && anyTaskImageUploaded && fuse) {
         processAllButton.disabled = false;
-        globalStatusDiv.textContent = 'Task data loaded. Upload images and click "Process All" to begin.'; // Simplified ready message
+        globalStatusDiv.textContent = 'Task data loaded. Upload images and click "Process All" to begin.';
     } else if (tarkovTasksData.length > 0 && fuse) {
-         // If data and fuse are loaded but no images yet
          globalStatusDiv.textContent = 'Task data loaded. Upload task images to enable processing.';
          processAllButton.disabled = true;
     } else {
-         // If data or fuse are not yet loaded
          processAllButton.disabled = true;
-         globalStatusDiv.textContent = 'Loading dependencies...'; // Simplified loading message
+         globalStatusDiv.textContent = 'Loading dependencies...';
     }
 
-    // Enable Post Completed Tasks button if any task is matched AND API key is present
     if (anyTaskMatched && apiKeyPresent) {
         postCompletedTasksButton.disabled = false;
     } else {
@@ -579,12 +485,12 @@ processAllButton.addEventListener('click', async () => {
      }
 
      processAllButton.disabled = true;
-     postCompletedTasksButton.disabled = true; // Disable post button during processing
-     globalStatusDiv.textContent = 'Starting processing...'; // Simplified message
+     postCompletedTasksButton.disabled = true;
+     globalStatusDiv.textContent = 'Starting processing...';
 
      const processingPromises = taskNames.map(async taskName => {
          const task = tasks[taskName];
-         task.identifiedCompletedTaskIds.clear(); // Clear previous identified tasks
+         task.identifiedCompletedTaskIds.clear();
 
 
          if (!task.image && taskName !== "Ref") {
@@ -592,7 +498,6 @@ processAllButton.addEventListener('click', async () => {
              if (task.outputArea) {
                  task.outputArea.value = '';
              }
-             // Ensure content sections are collapsed and cleared if skipping
              if (task.outputContent) task.outputContent.classList.remove('active');
              if (task.outputHeader) task.outputHeader.classList.remove('active');
              if (task.wikiLinksDiv) task.wikiLinksDiv.innerHTML = '';
@@ -610,9 +515,8 @@ processAllButton.addEventListener('click', async () => {
             if (task.outputArea) {
                 task.outputArea.value = 'No Ref image provided.';
             }
-            // Ensure content sections are collapsed and cleared if skipping
-            if (task.outputContent) task.outputContent.classList.remove('active'); // Keep collapsed
-            if (task.outputHeader) task.outputHeader.classList.remove('active'); // Keep collapsed
+            if (task.outputContent) task.outputContent.classList.remove('active');
+            if (task.outputHeader) task.outputHeader.classList.remove('active');
             if (task.wikiLinksDiv) task.wikiLinksDiv.innerHTML = '';
             if (task.wikiContent) task.wikiContent.classList.remove('active');
             if (task.wikiHeader) task.wikiHeader.classList.remove('active');
@@ -639,7 +543,6 @@ processAllButton.addEventListener('click', async () => {
           if (task.requiredTasksDiv) {
              task.requiredTasksDiv.innerHTML = '';
          }
-         // Ensure content sections are collapsed at the start of processing
          if (task.outputContent) task.outputContent.classList.remove('active');
          if (task.outputHeader) task.outputHeader.classList.remove('active');
          if (task.wikiContent) task.wikiContent.classList.remove('active');
@@ -754,7 +657,7 @@ processAllButton.addEventListener('click', async () => {
              }
 
              if (discriminantsFound > 0) {
-                 task.statusDiv.textContent = `${taskName}: Discriminants found. Defining OCR region...`; // Simplified message
+                 task.statusDiv.textContent = `${taskName}: Discriminants found. Defining OCR region...`;
 
                  let leftmostDiscriminant = null;
                  let rightmostDiscriminant = null;
@@ -774,7 +677,6 @@ processAllButton.addEventListener('click', async () => {
                       lowerDiscriminant = task.discriminant2Rect;
                  }
 
-                 // Define the bottom boundary for OCR as 90% of the image height
                  const ocrBottom = task.image.height * 0.9;
 
                  if (leftmostDiscriminant && rightmostDiscriminant && lowerDiscriminant) {
@@ -782,7 +684,6 @@ processAllButton.addEventListener('click', async () => {
                           left: leftmostDiscriminant.left + leftmostDiscriminant.width,
                           top: lowerDiscriminant.top,
                           width: rightmostDiscriminant.left - (leftmostDiscriminant.left + leftmostDiscriminant.width),
-                          // Calculate height from the top of the lower discriminant to the 90% mark
                           height: ocrBottom - lowerDiscriminant.top
                       };
                  } else {
@@ -795,11 +696,9 @@ processAllButton.addEventListener('click', async () => {
                  task.ocrRect.left = Math.max(0, task.ocrRect.left);
                  task.ocrRect.top = Math.max(0, task.ocrRect.top);
 
-                 // Ensure OCR region doesn't go below the 90% mark
                  if (task.ocrRect.top + task.ocrRect.height > ocrBottom) {
                      task.ocrRect.height = ocrBottom - task.ocrRect.top;
                  }
-                  // Ensure height is not negative
                  task.ocrRect.height = Math.max(0, task.ocrRect.height);
 
 
@@ -822,7 +721,6 @@ processAllButton.addEventListener('click', async () => {
                           task.ocrRect.height
                       );
 
-                      // Get image data from the drawn region
                       const imageData = tempProcessedCtx.getImageData(0, 0, tempProcessedCanvas.width, tempProcessedCanvas.height);
                       const pixels = imageData.data;
                       const ocrWidth = tempProcessedCanvas.width;
@@ -834,7 +732,6 @@ processAllButton.addEventListener('click', async () => {
                       let currentBlockStartRow = 0;
                       let previousLeftmostBrightness = -1;
 
-                      // Apply block-based inversion and binarization
                       for (let y = 0; y < ocrHeight; y++) {
                           const i = (y * ocrWidth + 0) * 4;
                           const r = pixels[i];
@@ -948,7 +845,6 @@ processAllButton.addEventListener('click', async () => {
                           }
                       }
 
-                      // Put processed image data back onto the temporary canvas
                       tempProcessedCtx.putImageData(imageData, 0, 0);
 
                       task.processedCanvas.width = tempProcessedCanvas.width;
@@ -960,7 +856,7 @@ processAllButton.addEventListener('click', async () => {
                            task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
                        }
 
-                      task.statusDiv.textContent = `${taskName}: Image processing complete. Starting OCR...`; // Simplified message
+                      task.statusDiv.textContent = `${taskName}: Image processing complete. Starting OCR...`;
 
                        if (task.processedCanvas) {
                            let worker = await Tesseract.createWorker('eng', 1, {
@@ -997,31 +893,28 @@ processAllButton.addEventListener('click', async () => {
 
 
                             const matchedResults = [];
-                            // identifiedTaskIds is now stored per task container
                             const currentIdentifiedTaskIds = new Set();
 
                             extractedLines.forEach(line => {
-                                // Use the new fuzzy matching function
                                 const matchedTask = matchOcrLineToTask(line, tarkovTasksData, taskName);
                                 if (matchedTask) {
                                     matchedResults.push({
                                         ocrLine: line.trim(),
                                         task: matchedTask.task,
-                                        score: matchedTask.score // Fuse.js score is lower for better matches
+                                        score: matchedTask.score
                                     });
-                                    currentIdentifiedTaskIds.add(matchedTask.task.id); // Add matched task ID
+                                    currentIdentifiedTaskIds.add(matchedTask.task.id);
                                 } else {
                                      if (IS_DEV_MODE) {
                                          matchedResults.push({
                                              ocrLine: line.trim(),
                                              task: null,
-                                             score: null // No score if no match
+                                             score: null
                                          });
                                      }
                                 }
                             });
 
-                            // Store the identified completed task IDs for this container
                             task.identifiedCompletedTaskIds = currentIdentifiedTaskIds;
 
 
@@ -1033,7 +926,7 @@ processAllButton.addEventListener('click', async () => {
                                    output += '--- OCR Line Matches (Dev Mode) ---\n';
                                    matchedResults.forEach(result => {
                                        if (result.task) {
-                                           output += `"${result.ocrLine}" => "${result.task.name}" (Trader: ${result.task.trader.name}, Fuse Score: ${result.score.toFixed(4)})\n`; // Display Fuse score
+                                           output += `"${result.ocrLine}" => "${result.task.name}" (Trader: ${result.task.trader.name}, Fuse Score: ${result.score.toFixed(4)})\n`;
                                            if (result.task.wikiLink) {
                                                 wikiLinksHtml += `<li><a href="${result.task.wikiLink}" target="_blank">${result.task.name} Wiki</a></li>`;
                                            }
@@ -1056,37 +949,29 @@ processAllButton.addEventListener('click', async () => {
                                              }
                                         });
                                     } else {
-                                        // Message when no tasks are matched in non-dev mode
                                         output += 'No tasks matched any OCR line for this trader.';
                                     }
                                }
 
                                task.outputArea.value = output;
-                               // Do NOT automatically expand output or wiki links after processing
-                               // Visibility is now controlled solely by the collapsible headers' active class
-                               // The headers are collapsed by default via CSS and on new image upload/processing start.
 
 
                                if (task.wikiLinksDiv) {
                                    if (wikiLinksHtml) {
                                        task.wikiLinksDiv.innerHTML = '<h4>Wiki Links:</h4><ul>' + wikiLinksHtml + '</ul>';
-                                       // Do NOT automatically expand wiki links after processing
                                    } else {
                                         task.wikiLinksDiv.innerHTML = '';
-                                        // Hide and collapse wiki links if none were found
                                         if (task.wikiContent) task.wikiContent.classList.remove('active');
                                         if (task.wikiHeader) task.wikiHeader.classList.remove('active');
                                    }
                                }
 
-                               // --- Identify and Display Required Completed Tasks ---
                                if (task.requiredTasksDiv && Object.keys(taskTree).length > 0) {
-                                    const requiredCompletedTasks = getRequiredCompletedTasks(Array.from(task.identifiedCompletedTaskIds), taskTree); // Use identifiedCompletedTaskIds for this container
+                                    const requiredCompletedTasks = getRequiredCompletedTasks(Array.from(task.identifiedCompletedTaskIds), taskTree);
 
                                     let requiredTasksHtml = '';
                                     if (requiredCompletedTasks.length > 0) {
                                         requiredTasksHtml += '<h4>Required Completed Tasks:</h4><ul>';
-                                        // Sort tasks alphabetically by name before displaying
                                         requiredCompletedTasks.sort((a, b) => a.name.localeCompare(b.name));
                                         requiredCompletedTasks.forEach(reqTask => {
                                              requiredTasksHtml += `<li>${reqTask.name} (${reqTask.id})</li>`;
@@ -1097,9 +982,7 @@ processAllButton.addEventListener('click', async () => {
                                     }
                                     task.requiredTasksDiv.innerHTML = requiredTasksHtml;
 
-                                    // Only show and potentially expand the required tasks section if there is content
                                     if (requiredTasksHtml.trim().length > 0 && requiredTasksHtml !== 'No specific prerequisite tasks identified based on OCR results.') {
-                                         // Do NOT automatically expand required tasks after processing
                                     } else {
                                          if (task.requiredTasksContent) task.requiredTasksContent.classList.remove('active');
                                          if (task.requiredTasksHeader) task.requiredTasksHeader.classList.remove('active');
@@ -1115,7 +998,7 @@ processAllButton.addEventListener('click', async () => {
                                 console.error(`Error: task.outputArea is undefined for task ${taskName} during output display.`);
                            }
 
-                           task.statusDiv.textContent = `Processing complete for ${taskName}.`; // Simplified message
+                           task.statusDiv.textContent = `Processing complete for ${taskName}.`;
 
 
                        } else {
@@ -1139,7 +1022,7 @@ processAllButton.addEventListener('click', async () => {
                           console.error(`Error: task.outputArea is undefined for task ${taskName} during invalid OCR region.`);
                      }
                      task.statusDiv.textContent = 'OCR region invalid.';
-                     if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none'; // Ensure processed canvas display is set based on IS_DEV_MODE
+                     if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
                      if (task.outputContent) task.outputContent.classList.remove('active');
                      if (task.outputHeader) task.outputHeader.classList.remove('active');
                      if (task.wikiContent) task.wikiContent.classList.remove('active');
@@ -1154,13 +1037,13 @@ processAllButton.addEventListener('click', async () => {
                  task.discriminant2Rect = null;
                  task.ocrRect = null;
                  if (task.outputArea) {
-                     task.outputArea.value = 'One or both discriminant shapes not found.'; // Simplified message
+                     task.outputArea.value = 'One or both discriminant shapes not found.';
                  } else {
                      console.error(`Error: task.outputArea is undefined for task ${taskName} when discriminants not found.`);
                  }
-                 task.statusDiv.textContent = 'Discriminants not found.'; // Simplified message
+                 task.statusDiv.textContent = 'Discriminants not found.';
                   drawTaskImageOnCanvas(taskName);
-                  if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none'; // Ensure processed canvas display is set based on IS_DEV_MODE
+                  if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
                   if (task.outputContent) task.outputContent.classList.remove('active');
                   if (task.outputHeader) task.outputHeader.classList.remove('active');
                   if (task.wikiContent) task.wikiContent.classList.remove('active');
@@ -1176,7 +1059,7 @@ processAllButton.addEventListener('click', async () => {
              } else {
                   console.error(`Error: task.outputArea is undefined for task ${taskName} during general error handling.`);
              }
-              if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none'; // Ensure processed canvas display is set based on IS_DEV_MODE
+              if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
               if (task.outputContent) task.outputContent.classList.remove('active');
               if (task.outputHeader) task.outputHeader.classList.remove('active');
               if (task.wikiContent) task.wikiContent.classList.remove('active');
@@ -1188,11 +1071,10 @@ processAllButton.addEventListener('click', async () => {
 
      await Promise.all(processingPromises);
 
-     globalStatusDiv.textContent = 'Processing complete.'; // Simplified message
-     checkIfReady(); // Re-check button states after processing
+     globalStatusDiv.textContent = 'Processing complete.';
+     checkIfReady();
 });
 
-// --- Post Completed Tasks Functionality ---
 postCompletedTasksButton.addEventListener('click', async () => {
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
@@ -1206,17 +1088,9 @@ postCompletedTasksButton.addEventListener('click', async () => {
 
     let tasksPostedCount = 0;
     let tasksFailedCount = 0;
-    let totalTasksToPost = 0;
 
-    // Calculate total tasks to post first
-    taskNames.forEach(taskName => {
-        const task = tasks[taskName];
-        if (task.identifiedCompletedTaskIds) {
-            totalTasksToPost += task.identifiedCompletedTaskIds.size;
-        }
-    });
-
-    let tasksProcessed = 0;
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second
 
     for (const taskName of taskNames) {
         const task = tasks[taskName];
@@ -1230,56 +1104,71 @@ postCompletedTasksButton.addEventListener('click', async () => {
                 };
                 const body = JSON.stringify({ "state": "completed" });
 
-                try {
-                    const response = await fetch(postUrl, {
-                        method: 'POST',
-                        headers: headers,
-                        body: body
-                    });
+                let attempt = 0;
+                let success = false;
 
-                    tasksProcessed++;
+                while (attempt < maxRetries && !success) {
+                    try {
+                        const response = await fetch(postUrl, {
+                            method: 'POST',
+                            headers: headers,
+                            body: body
+                        });
 
-                    if (response.ok) {
-                        console.log(`Successfully posted task ${taskId} as completed.`);
-                        tasksPostedCount++;
-                        globalStatusDiv.textContent = `Posting completed tasks to TarkovTracker... (${tasksProcessed}/${totalTasksToPost} tasks processed)`;
-                         if (task.outputArea) {
-                             task.outputArea.value += `\nPosted task ${taskId} as completed to TarkovTracker.`;
-                         }
-                    } else {
-                        const errorText = await response.text();
-                        console.error(`Failed to post task ${taskId}. Status: ${response.status}. Response: ${errorText}`);
-                        tasksFailedCount++;
-                        globalStatusDiv.textContent = `Posting completed tasks to TarkovTracker... (${tasksProcessed}/${totalTasksToPost} tasks processed) - Failed: ${tasksFailedCount}`;
-                         if (task.outputArea) {
-                             task.outputArea.value += `\nFailed to post task ${taskId}. Status: ${response.status}.`;
+                        if (response.ok) {
+                            console.log(`Successfully posted task ${taskId} as completed.`);
+                            tasksPostedCount++;
+                            if (task.outputArea) {
+                                task.outputArea.value += `\nPosted task ${taskId} as completed to TarkovTracker.`;
+                            }
+                            success = true;
+                        } else if (response.status === 429) {
+                            console.warn(`Rate limited (429) for task ${taskId}. Attempt ${attempt + 1} of ${maxRetries}. Retrying...`);
+                            attempt++;
+                            if (attempt < maxRetries) {
+                                const delay = baseDelay * Math.pow(2, attempt - 1);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                            } else {
+                                console.error(`Failed to post task ${taskId} after ${maxRetries} attempts due to rate limiting.`);
+                                tasksFailedCount++;
+                                if (task.outputArea) {
+                                    task.outputArea.value += `\nFailed to post task ${taskId} after ${maxRetries} attempts (Rate Limited).`;
+                                }
+                            }
+                        } else {
+                            const errorText = await response.text();
+                            console.error(`Failed to post task ${taskId}. Status: ${response.status}. Response: ${errorText}`);
+                            tasksFailedCount++;
+                            if (task.outputArea) {
+                                task.outputArea.value += `\nFailed to post task ${taskId}. Status: ${response.status}.`;
+                            }
+                            success = true; // Do not retry on other errors
+                        }
+                    } catch (error) {
+                        // This catch block handles network errors, including potential CORS issues
+                        console.error(`Error during fetch for task ${taskId}. Attempt ${attempt + 1} of ${maxRetries}:`, error);
+                        attempt++;
+                         if (attempt < maxRetries) {
+                            const delay = baseDelay * Math.pow(2, attempt - 1);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                         } else {
+                            console.error(`Failed to post task ${taskId} after ${maxRetries} attempts due to network error.`);
+                            tasksFailedCount++;
+                            if (task.outputArea) {
+                                task.outputArea.value += `\nError posting task ${taskId} after ${maxRetries} attempts: ${error.message}`;
+                            }
                          }
                     }
-                } catch (error) {
-                    console.error(`Error during fetch for task ${taskId}:`, error);
-                    tasksFailedCount++;
-                    tasksProcessed++; // Ensure processed count is incremented even on fetch error
-                    globalStatusDiv.textContent = `Posting completed tasks to TarkovTracker... (${tasksProcessed}/${totalTasksToPost} tasks processed) - Failed: ${tasksFailedCount}`;
-                     if (task.outputArea) {
-                         task.outputArea.value += `\nError posting task ${taskId}: ${error.message}`;
-                     }
-                }
-
-                // Add a delay between requests
-                if (tasksProcessed < totalTasksToPost) {
-                    await new Promise(resolve => setTimeout(resolve, POST_DELAY_MS));
                 }
             }
         }
     }
 
     globalStatusDiv.textContent = `Posting complete. Successfully posted ${tasksPostedCount} tasks, failed to post ${tasksFailedCount} tasks.`;
-    checkIfReady(); // Re-enable buttons
+    checkIfReady();
 });
-// --- End Post Completed Tasks Functionality ---
 
-
-globalStatusDiv.textContent = 'Loading dependencies...'; // Initial simplified message
+globalStatusDiv.textContent = 'Loading dependencies...';
 
 const loadOpenCv = new Promise((resolve) => {
     if (typeof cv !== 'undefined' && typeof cv.Mat !== 'undefined') {
@@ -1293,26 +1182,12 @@ const loadOpenCv = new Promise((resolve) => {
     }
 });
 
-// Load Fuse.js and then other dependencies
 const loadFuse = new Promise((resolve) => {
-    // Check if Fuse is already loaded (e.g., from a previous run)
     if (typeof Fuse !== 'undefined') {
         console.log('Fuse.js already loaded.');
         resolve();
     } else {
-        // If not, wait for the script tag to load it (handled in index.html)
-        // We can't directly add the script tag here and wait for it easily
-        // A simpler approach is to assume the script tag in index.html loads it
-        // and check for its existence after a short delay or rely on the fetchTarkovTasks
-        // which is part of the overall dependency loading.
-        // For simplicity, we'll rely on the overall Promise.all and the check in fetchTarkovTasks.
-        // A more robust approach would involve dynamically creating the script tag here and
-        // listening for its 'load' event. However, given the context, relying on the HTML
-        // loading is acceptable.
          console.log('Waiting for Fuse.js to load from HTML.');
-         // We don't have a direct way to listen for the script tag load here,
-         // so we'll just resolve immediately and rely on the check in fetchTarkovTasks
-         // and checkIfReady that Fuse is initialized.
          resolve();
     }
 });
@@ -1320,41 +1195,36 @@ const loadFuse = new Promise((resolve) => {
 
 Promise.all([
      loadOpenCv,
-     loadFuse, // Wait for the promise indicating Fuse.js is potentially loaded
-     fetchTarkovTasks(), // Fetch Tarkov data (Fuse.js will be initialized inside this)
+     loadFuse,
+     fetchTarkovTasks(),
      new Promise((resolve) => {
-         // Load the first discriminant image
          loadImageFromUrl(DISCRIMINANT_IMAGE_PATHS[0], (img) => {
              discriminantImage1 = img;
              resolve();
          });
      }),
      new Promise((resolve) => {
-          // Load the second discriminant image
           loadImageFromUrl(DISCRIMINANT_IMAGE_PATHS[1], (img) => {
               discriminantImage2 = img;
               resolve();
           });
      })
 ]).then(() => {
-     // Removed status message here, handled by checkIfReady
-     checkIfReady(); // Check if Process All button should be enabled after all dependencies are loaded
+     checkIfReady();
 }).catch(error => {
      console.error("Error loading dependencies:", error);
      globalStatusDiv.textContent = 'Error loading dependencies. Check console for details.';
 });
 
 
- // Initial state: Hide canvases and output areas, and collapse collapsible sections
  taskNames.forEach(taskName => {
      const task = tasks[taskName];
      if (task.originalCanvas) task.originalCanvas.style.display = 'none';
-     if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none'; // Set initial display based on IS_DEV_MODE
-     if (task.outputArea) task.outputArea.value = ''; // Clear any default text
-     if (task.wikiLinksDiv) task.wikiLinksDiv.innerHTML = ''; // Clear any default content
-      if (task.requiredTasksDiv) task.requiredTasksDiv.innerHTML = ''; // Clear any default content
+     if (task.processedCanvas) task.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
+     if (task.outputArea) task.outputArea.value = '';
+     if (task.wikiLinksDiv) task.wikiLinksDiv.innerHTML = '';
+      if (task.requiredTasksDiv) task.requiredTasksDiv.innerHTML = '';
 
-     // Ensure collapsible sections are collapsed initially
      if (task.outputContent) task.outputContent.classList.remove('active');
      if (task.outputHeader) task.outputHeader.classList.remove('active');
      if (task.wikiContent) task.wikiContent.classList.remove('active');
