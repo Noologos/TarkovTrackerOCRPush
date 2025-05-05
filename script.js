@@ -1094,8 +1094,12 @@ postCompletedTasksButton.addEventListener('click', async () => {
 
     for (const taskName of taskNames) {
         const task = tasks[taskName];
-        if (task.identifiedCompletedTaskIds && task.identifiedCompletedTaskIds.size > 0) {
-            for (const taskId of task.identifiedCompletedTaskIds) {
+        // Get the required completed tasks for this container
+        const requiredCompletedTasks = getRequiredCompletedTasks(Array.from(task.identifiedCompletedTaskIds), taskTree);
+
+        if (requiredCompletedTasks.length > 0) {
+            for (const reqTask of requiredCompletedTasks) {
+                const taskId = reqTask.id; // Use the ID from the required task object
                 const postUrl = `https://tarkovtracker.io/api/v2/progress/task/${taskId}`;
                 const headers = {
                     'accept': '*/*',
@@ -1116,46 +1120,45 @@ postCompletedTasksButton.addEventListener('click', async () => {
                         });
 
                         if (response.ok) {
-                            console.log(`Successfully posted task ${taskId} as completed.`);
+                            console.log(`Successfully posted required task ${taskId} (${reqTask.name}) as completed.`);
                             tasksPostedCount++;
                             if (task.outputArea) {
-                                task.outputArea.value += `\nPosted task ${taskId} as completed to TarkovTracker.`;
+                                task.outputArea.value += `\nPosted required task ${reqTask.name} (${taskId}) as completed to TarkovTracker.`;
                             }
                             success = true;
                         } else if (response.status === 429) {
-                            console.warn(`Rate limited (429) for task ${taskId}. Attempt ${attempt + 1} of ${maxRetries}. Retrying...`);
+                            console.warn(`Rate limited (429) for required task ${taskId} (${reqTask.name}). Attempt ${attempt + 1} of ${maxRetries}. Retrying...`);
                             attempt++;
                             if (attempt < maxRetries) {
                                 const delay = baseDelay * Math.pow(2, attempt - 1);
                                 await new Promise(resolve => setTimeout(resolve, delay));
                             } else {
-                                console.error(`Failed to post task ${taskId} after ${maxRetries} attempts due to rate limiting.`);
+                                console.error(`Failed to post required task ${taskId} (${reqTask.name}) after ${maxRetries} attempts due to rate limiting.`);
                                 tasksFailedCount++;
                                 if (task.outputArea) {
-                                    task.outputArea.value += `\nFailed to post task ${taskId} after ${maxRetries} attempts (Rate Limited).`;
+                                    task.outputArea.value += `\nFailed to post required task ${reqTask.name} (${taskId}) after ${maxRetries} attempts (Rate Limited).`;
                                 }
                             }
                         } else {
                             const errorText = await response.text();
-                            console.error(`Failed to post task ${taskId}. Status: ${response.status}. Response: ${errorText}`);
+                            console.error(`Failed to post required task ${taskId} (${reqTask.name}). Status: ${response.status}. Response: ${errorText}`);
                             tasksFailedCount++;
                             if (task.outputArea) {
-                                task.outputArea.value += `\nFailed to post task ${taskId}. Status: ${response.status}.`;
+                                task.outputArea.value += `\nFailed to post required task ${reqTask.name} (${taskId}). Status: ${response.status}.`;
                             }
                             success = true; // Do not retry on other errors
                         }
                     } catch (error) {
-                        // This catch block handles network errors, including potential CORS issues
-                        console.error(`Error during fetch for task ${taskId}. Attempt ${attempt + 1} of ${maxRetries}:`, error);
+                        console.error(`Error during fetch for required task ${taskId} (${reqTask.name}). Attempt ${attempt + 1} of ${maxRetries}:`, error);
                         attempt++;
                          if (attempt < maxRetries) {
                             const delay = baseDelay * Math.pow(2, attempt - 1);
                             await new Promise(resolve => setTimeout(resolve, delay));
                          } else {
-                            console.error(`Failed to post task ${taskId} after ${maxRetries} attempts due to network error.`);
+                            console.error(`Failed to post required task ${taskId} (${reqTask.name}) after ${maxRetries} attempts due to network error.`);
                             tasksFailedCount++;
                             if (task.outputArea) {
-                                task.outputArea.value += `\nError posting task ${taskId} after ${maxRetries} attempts: ${error.message}`;
+                                task.outputArea.value += `\nError posting required task ${reqTask.name} (${taskId}) after ${maxRetries} attempts: ${error.message}`;
                             }
                          }
                     }
