@@ -203,7 +203,16 @@
             display: flex; /* Use flexbox */
             flex-direction: column; /* Stack children vertically */
             gap: 10px; /* Space between elements in the container */
+            outline: none; /* Remove default focus outline */
+            border: 2px solid transparent; /* Add a transparent border for focus highlight */
+            transition: border-color 0.2s ease; /* Smooth transition for border color */
         }
+
+        /* Style for focused task container */
+        .task-container:focus {
+            border-color: #007bff; /* Highlight color when focused */
+        }
+
 
         /* Canvas Styling */
         .canvas-container {
