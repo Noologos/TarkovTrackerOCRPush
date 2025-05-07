@@ -1320,3 +1320,4 @@ taskNames.forEach(taskName => {
          if (task.domElements.requiredTasksHeader) task.domElements.requiredTasksHeader.classList.remove('active');
      }
 });
+
