@@ -1,11 +1,10 @@
 const globalStatusDiv = document.getElementById('global-status');
-const container = document.querySelector('.container'); // Get the main container
+const container = document.querySelector('.container'); 
 const taskImagesGrid = document.getElementById('task-images-grid');
 const processAllButton = document.getElementById('process-all-tasks');
 const apiKeyInput = document.getElementById('api-key-input');
 const postCompletedTasksButton = document.getElementById('post-completed-tasks-button');
 
-// Get DOM elements for the new Kappa section
 const kappaItemsSection = document.getElementById('kappa-items-section');
 const kappaFileInput = document.getElementById('upload-kappa-items');
 const kappaOriginalCanvas = kappaItemsSection ? kappaItemsSection.querySelector('.original-canvas') : null;
