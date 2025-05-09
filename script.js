@@ -1,16 +1,41 @@
 const globalStatusDiv = document.getElementById('global-status');
+const container = document.querySelector('.container'); // Get the main container
 const taskImagesGrid = document.getElementById('task-images-grid');
 const processAllButton = document.getElementById('process-all-tasks');
 const apiKeyInput = document.getElementById('api-key-input');
 const postCompletedTasksButton = document.getElementById('post-completed-tasks-button');
 
+// Get DOM elements for the new Kappa section
+const kappaItemsSection = document.getElementById('kappa-items-section');
+const kappaFileInput = document.getElementById('upload-kappa-items');
+const kappaOriginalCanvas = kappaItemsSection ? kappaItemsSection.querySelector('.original-canvas') : null;
+const kappaProcessedCanvas = kappaItemsSection ? kappaItemsSection.querySelector('.processed-canvas') : null;
+const kappaStatusDiv = kappaItemsSection ? kappaItemsSection.querySelector('.kappa-status') : null;
+const kappaProcessButton = kappaItemsSection ? kappaItemsSection.querySelector('#process-kappa-items') : null;
+const kappaClearButton = kappaItemsSection ? kappaItemsSection.querySelector('#clear-kappa-items') : null;
+const kappaButtonsContainer = kappaItemsSection ? kappaItemsSection.querySelector('.kappa-buttons') : null;
+const kappaOutputArea = kappaItemsSection ? kappaItemsSection.querySelector('.kappa-output') : null;
+const kappaOutputHeader = kappaItemsSection ? kappaItemsSection.querySelector('.collapsible-header[data-target="output-kappa"]') : null;
+const kappaOutputContent = kappaItemsSection ? kappaItemsSection.querySelector('.collapsible-content#output-kappa') : null;
+const kappaMatchedItemsHeader = kappaItemsSection ? kappaItemsSection.querySelector('.collapsible-header[data-target="matched-kappa-items"]') : null;
+const kappaMatchedItemsContent = kappaItemsSection ? kappaItemsSection.querySelector('.collapsible-content#matched-kappa-items') : null;
+const kappaMatchedItemsListDiv = kappaItemsSection ? kappaItemsSection.querySelector('.matched-items-list') : null;
+
+
 const IS_DEV_MODE = false;
 
 let discriminantImage1 = null;
 let discriminantImage2 = null;
-let tarkovTasksData = [];
+let tarkovTasksData = []; // General task data
+let kappaRequiredItemsData = []; // Specific items required for Kappa
+let kappaRequiredItemIcons = {}; // Store loaded Kappa item icons
 let taskTree = {};
-let fuse;
+let fuse; // Fuse for tasks
+// Removed itemFuse as it's no longer needed for Kappa item matching
+
+
+// Kappa task ID (The Collector)
+const KAPPA_TASK_ID = "5c51aac186f77432ea65c552";
 
 const DISCRIMINANT_IMAGE_PATHS = ['discriminant.png', 'discriminant2.png'];
 
@@ -18,24 +43,35 @@ const taskNames = ["Prapor", "Therapist", "Skier", "Peacekeeper", "Mechanic", "R
 
 const tasks = {};
 
+// State for Kappa items
+const kappaState = {
+    image: null,
+    processingResults: {
+        foundItems: [], // Store found items with locations
+        missingItems: [] // Store items not found
+    }
+};
+
+
 const BRIGHTNESS_CHANGE_THRESHOLD = 20;
 const BINARIZATION_THRESHOLD = 120;
-const OCR_BOTTOM_PERCENTAGE = 0.9;
+const OCR_BOTTOM_PERCENTAGE = 0.9; // May need different values for Kappa
 const FUSE_THRESHOLD = 0.4;
+const KAPPA_MATCH_THRESHOLD = 0.7; // Confidence threshold for template matching
 
 const API_KEY_STORAGE_KEY = 'tarkov_dev_api_key';
 
-function saveApiKey(key) {
+const saveApiKey = (key) => {
     if (key) {
         localStorage.setItem(API_KEY_STORAGE_KEY, key);
     } else {
         localStorage.removeItem(API_KEY_STORAGE_KEY);
     }
-}
+};
 
-function loadApiKey() {
+const loadApiKey = () => {
     return localStorage.getItem(API_KEY_STORAGE_KEY);
-}
+};
 
 window.addEventListener('load', () => {
     const savedApiKey = loadApiKey();
@@ -44,11 +80,36 @@ window.addEventListener('load', () => {
     }
     checkIfReady();
 
-    // Set Prapor as focused by default on load
     const praporTaskElement = document.getElementById('task-prapor');
     if (praporTaskElement) {
         praporTaskElement.classList.add('focused');
     }
+
+    // Add focused class listener for Kappa section
+     if (kappaItemsSection) {
+         kappaItemsSection.addEventListener('click', () => {
+              document.querySelectorAll('.task-container').forEach(container => {
+                 container.classList.remove('focused');
+             });
+             document.querySelectorAll('.kappa-items-container').forEach(container => {
+                 container.classList.remove('focused');
+             });
+             kappaItemsSection.classList.add('focused');
+             console.log('Kappa section clicked, focused class added.'); // Log focus change
+         });
+     }
+
+     // Ensure canvases are hidden on load
+     if (kappaOriginalCanvas) kappaOriginalCanvas.style.display = 'none';
+     if (kappaProcessedCanvas) kappaProcessedCanvas.style.display = 'none';
+      taskNames.forEach(taskName => {
+         const task = tasks[taskName];
+         if (task && task.domElements) {
+             if (task.domElements.originalCanvas) task.domElements.originalCanvas.style.display = 'none';
+             if (task.domElements.processedCanvas) task.domElements.processedCanvas.style.display = 'none';
+         }
+      });
+
 });
 
 if (apiKeyInput) {
@@ -58,11 +119,11 @@ if (apiKeyInput) {
     });
 }
 
-function cleanStringForMatching(str) {
+const cleanStringForMatching = (str) => {
     return str.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim();
-}
+};
 
-function matchOcrLineToTask(ocrLine, tarkovTasksData, traderName) {
+const matchOcrLineToTask = (ocrLine, tarkovTasksData, traderName) => {
     const cleanedOcrLine = cleanStringForMatching(ocrLine);
 
     if (cleanedOcrLine.length === 0 || !fuse) {
@@ -97,24 +158,35 @@ function matchOcrLineToTask(ocrLine, tarkovTasksData, traderName) {
     } else {
         return null;
     }
-}
+};
 
-function createElementFromHTML(htmlString) {
+
+const createElementFromHTML = (htmlString) => {
     const div = document.createElement('div');
     div.innerHTML = htmlString.trim();
     return div.firstChild;
-}
+};
 
-function reportTaskStatus(taskName, message) {
+const reportTaskStatus = (taskName, message) => {
     const task = tasks[taskName];
     if (task && task.domElements && task.domElements.statusDiv) {
         task.domElements.statusDiv.textContent = message;
     } else {
         console.error(`Error reporting status for task ${taskName}: Status div not found.`);
     }
-}
+};
 
-function reportTaskOutput(taskName, message, append = false) {
+// New function to report status for Kappa section
+const reportKappaStatus = (message) => {
+    if (kappaStatusDiv) {
+        kappaStatusDiv.textContent = message;
+    } else {
+        console.error('Error reporting status for Kappa: Status div not found.');
+    }
+};
+
+
+const reportTaskOutput = (taskName, message, append = false) => {
     const task = tasks[taskName];
     if (task && task.domElements && task.domElements.outputArea) {
         if (append) {
@@ -125,7 +197,98 @@ function reportTaskOutput(taskName, message, append = false) {
     } else {
         console.error(`Error reporting output for task ${taskName}: Output area not found.`);
     }
+};
+
+// New function to report output for Kappa section
+const reportKappaOutput = (message, append = false) => {
+     if (kappaOutputArea) {
+         if (append) {
+             kappaOutputArea.value += message;
+         } else {
+             kappaOutputArea.value = message;
+         }
+     } else {
+         console.error('Error reporting output for Kappa: Output area not found.');
+     }
+};
+
+function clearTask(taskName) {
+     const task = tasks[taskName];
+     if (!task || !task.domElements) {
+         console.error(`Error clearing task ${taskName}: Task object or DOM elements not found.`);
+         return;
+     }
+
+     task.image = null;
+     task.processingResults.discriminant1Rect = null;
+     task.processingResults.discriminant2Rect = null;
+     task.processingResults.ocrRect = null;
+     task.processingResults.identifiedCompletedTaskIds.clear();
+     task.processingResults.requiredTasksToPost = [];
+
+     const { originalCanvas, originalCtx, processedCanvas, processedCtx, fileInput, statusDiv, outputArea, wikiLinksDiv, requiredTasksDiv, outputHeader, outputContent, wikiHeader, wikiContent, requiredTasksHeader, requiredTasksContent, processButton, clearButton, taskButtonsContainer } = task.domElements;
+
+     if (originalCtx) {
+         originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+         originalCanvas.style.display = 'none';
+     }
+     if (processedCtx) {
+         processedCtx.clearRect(0, 0, processedCanvas.width, processedCanvas.height);
+         processedCanvas.style.display = 'none'; // Ensure processed canvas is also hidden
+     }
+
+     if (fileInput) {
+         fileInput.value = '';
+     }
+
+     if (statusDiv) {
+         statusDiv.textContent = 'Awaiting image upload.';
+     }
+
+     if (outputArea) {
+         outputArea.value = '';
+     }
+
+     if (wikiLinksDiv) {
+         wikiLinksDiv.innerHTML = '';
+     }
+
+     if (requiredTasksDiv) {
+         requiredTasksDiv.innerHTML = '';
+     }
+
+    // Hide collapsible content and headers
+     if (outputContent) outputContent.style.display = 'none';
+     if (outputHeader) {
+         outputHeader.style.display = 'none';
+         outputHeader.classList.remove('active');
+     }
+     if (wikiContent) wikiContent.style.display = 'none';
+     if (wikiHeader) {
+         wikiHeader.style.display = 'none';
+         wikiHeader.classList.remove('active');
+     }
+     if (requiredTasksContent) requiredTasksContent.style.display = 'none';
+     if (requiredTasksHeader) {
+         requiredTasksHeader.style.display = 'none';
+         requiredTasksHeader.classList.remove('active');
+     }
+
+
+     if (taskButtonsContainer) {
+         taskButtonsContainer.style.display = 'none';
+     }
+
+     if (processButton) {
+         processButton.disabled = true;
+     }
+     if (clearButton) {
+         clearButton.disabled = true;
+     }
+
+     checkIfReady();
 }
+
 
 function initializeTask(taskName) {
     const taskElement = createElementFromHTML(`
@@ -141,18 +304,23 @@ function initializeTask(taskName) {
             </div>
             <div class="task-status">Awaiting image upload.</div>
 
-            <div class="collapsible-header" data-target="output-${taskName.toLowerCase()}">OCR Output</div>
-            <div class="collapsible-content" id="output-${taskName.toLowerCase()}">
+            <div class="task-buttons" style="display: none;">
+                <button class="process-task-button" data-task="${taskName}" disabled>Process Image</button>
+                <button class="clear-task-button" data-task="${taskName}" disabled>Clear</button>
+            </div>
+
+            <div class="collapsible-header" data-target="output-${taskName.toLowerCase()}" style="display: none;">OCR Output</div>
+            <div class="collapsible-content" id="output-${taskName.toLowerCase()}" style="display: none;">
                  <textarea class="task-output" readonly></textarea>
             </div>
 
-            <div class="collapsible-header" data-target="wiki-${taskName.toLowerCase()}">Wiki Links</div>
-            <div class="collapsible-content" id="wiki-${taskName.toLowerCase()}">
+            <div class="collapsible-header" data-target="wiki-${taskName.toLowerCase()}" style="display: none;">Wiki Links</div>
+            <div class="collapsible-content" id="wiki-${taskName.toLowerCase()}" style="display: none;">
                  <div class="wiki-links"></div>
             </div>
 
-             <div class="collapsible-header" data-target="required-tasks-${taskName.toLowerCase()}">Required Completed Tasks</div>
-            <div class="collapsible-content" id="required-tasks-${taskName.toLowerCase()}">
+             <div class="collapsible-header" data-target="required-tasks-${taskName.toLowerCase()}" style="display: none;">Required Completed Tasks</div>
+            <div class="collapsible-content" id="required-tasks-${taskName.toLowerCase()}" style="display: none;">
                  <div class="required-tasks"></div>
             </div>
         </div>
@@ -183,25 +351,41 @@ function initializeTask(taskName) {
             wikiContent: taskElement.querySelector('.collapsible-content#wiki-' + taskName.toLowerCase()),
             requiredTasksHeader: taskElement.querySelector('.collapsible-header[data-target="required-tasks-' + taskName.toLowerCase() + '"]'),
             requiredTasksContent: taskElement.querySelector('.collapsible-content#required-tasks-' + taskName.toLowerCase()),
-            fileInput: taskElement.querySelector('input[type="file"]')
+            fileInput: taskElement.querySelector('input[type="file"]'),
+            processButton: taskElement.querySelector('.process-task-button'),
+            clearButton: taskElement.querySelector('.clear-task-button'),
+            taskButtonsContainer: taskElement.querySelector('.task-buttons')
         },
         processingResults: {
             discriminant1Rect: null,
             discriminant2Rect: null,
             ocrRect: null,
             identifiedCompletedTaskIds: new Set(),
-            requiredTasksToPost: [] // Initialize the array to store task IDs to post
+            requiredTasksToPost: []
         }
     };
 
     const task = tasks[taskName];
+
+    // Hide collapsible content and headers initially
+    if (task.domElements.outputContent) task.domElements.outputContent.style.display = 'none';
+    if (task.domElements.outputHeader) task.domElements.outputHeader.style.display = 'none';
+    if (task.domElements.wikiContent) task.domElements.wikiContent.style.display = 'none';
+    if (task.domElements.wikiHeader) task.domElements.wikiHeader.style.display = 'none';
+    if (task.domElements.requiredTasksContent) task.domElements.requiredTasksContent.style.display = 'none';
+    if (task.domElements.requiredTasksHeader) task.domElements.requiredTasksHeader.style.display = 'none';
+
+     // Ensure canvases are hidden initially
+     if (task.domElements.originalCanvas) task.domElements.originalCanvas.style.display = 'none';
+     if (task.domElements.processedCanvas) task.domElements.processedCanvas.style.display = 'none';
+
 
     if (task.domElements.fileInput) {
         task.domElements.fileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             loadImageFile(file, (img) => {
                 task.image = img;
-                const { originalCanvas, originalCtx, processedCanvas } = task.domElements;
+                const { originalCanvas, originalCtx, processedCanvas, taskButtonsContainer } = task.domElements;
 
                 originalCanvas.width = img.width;
                 originalCanvas.height = img.height;
@@ -220,101 +404,135 @@ function initializeTask(taskName) {
                 task.processingResults.discriminant2Rect = null;
                 task.processingResults.ocrRect = null;
                 task.processingResults.identifiedCompletedTaskIds.clear();
-                task.processingResults.requiredTasksToPost = []; // Clear the array on new image
+                task.processingResults.requiredTasksToPost = [];
 
                 reportTaskOutput(taskName, '');
                 if (task.domElements.wikiLinksDiv) task.domElements.wikiLinksDiv.innerHTML = '';
                 if (task.domElements.requiredTasksDiv) task.domElements.requiredTasksDiv.innerHTML = '';
 
-                if (task.domElements.outputContent) task.domElements.outputContent.classList.remove('active');
+                // Hide collapsible content and headers initially on new upload
+                if (task.domElements.outputContent) task.domElements.outputContent.style.display = 'none';
+                if (task.domElements.outputHeader) task.domElements.outputHeader.style.display = 'none';
                 if (task.domElements.outputHeader) task.domElements.outputHeader.classList.remove('active');
-                if (task.domElements.wikiContent) task.domElements.wikiContent.classList.remove('active');
+                if (task.domElements.wikiContent) task.domElements.wikiContent.style.display = 'none';
+                if (task.domElements.wikiHeader) task.domElements.wikiHeader.style.display = 'none';
                 if (task.domElements.wikiHeader) task.domElements.wikiHeader.classList.remove('active');
-                if (task.domElements.requiredTasksContent) task.domElements.requiredTasksContent.classList.remove('active');
+                if (task.domElements.requiredTasksContent) task.domElements.requiredTasksContent.style.display = 'none';
+                if (task.domElements.requiredTasksHeader) task.domElements.requiredTasksHeader.style.display = 'none';
                 if (task.domElements.requiredTasksHeader) task.domElements.requiredTasksHeader.classList.remove('active');
+
+
+                if (taskButtonsContainer) taskButtonsContainer.style.display = 'flex';
+                if (task.domElements.processButton) task.domElements.processButton.disabled = false;
+                if (task.domElements.clearButton) task.domElements.clearButton.disabled = false;
             });
         });
     } else {
         console.error(`Error: File input not found for task ${taskName}.`);
     }
+
+    if (task.domElements.processButton) {
+        task.domElements.processButton.addEventListener('click', async () => {
+            await processSingleTask(taskName);
+        });
+    }
+
+    if (task.domElements.clearButton) {
+        task.domElements.clearButton.addEventListener('click', () => {
+            clearTask(taskName);
+        });
+    }
 }
+
 
 taskNames.forEach(taskName => {
     initializeTask(taskName);
 });
 
-// Add the focused class to the Prapor task container by default
 const praporTaskElement = document.getElementById('task-prapor');
 if (praporTaskElement) {
     praporTaskElement.classList.add('focused');
 }
 
 
-if (taskImagesGrid) {
-    // Event delegation for collapsible headers
-    taskImagesGrid.addEventListener('click', (event) => {
+if (container) { // Attach paste listener to the main container
+    container.addEventListener('click', (event) => {
         const target = event.target;
         const header = target.closest('.collapsible-header');
-        if (header) {
+        if (header && header.style.display !== 'none') {
             const contentId = header.dataset.target;
             const contentElement = document.getElementById(contentId);
             if (contentElement) {
-                contentElement.classList.toggle('active');
-                header.classList.toggle('active');
+                const hasContent = contentElement.textContent.trim().length > 0 || contentElement.querySelector('textarea')?.value.trim().length > 0 || contentElement.querySelector('ul')?.children.length > 0;
+                if (hasContent || contentElement.id.startsWith('output-') || contentElement.id === 'matched-kappa-items') { // Include kappa matched items
+                     contentElement.classList.toggle('active');
+                     header.classList.toggle('active');
+                     if (contentElement.classList.contains('active')) {
+                         contentElement.style.display = 'block';
+                     } else {
+                         contentElement.style.display = 'none';
+                     }
+                }
             }
         }
     });
 
-    // Event delegation for task container highlighting
-    taskImagesGrid.addEventListener('click', (event) => {
+    container.addEventListener('click', (event) => {
         const target = event.target;
         const taskContainer = target.closest('.task-container');
+        const kappaContainer = target.closest('.kappa-items-container');
 
-        // Remove 'focused' class from all task containers first
+
         document.querySelectorAll('.task-container').forEach(container => {
             container.classList.remove('focused');
         });
+         document.querySelectorAll('.kappa-items-container').forEach(container => {
+             container.classList.remove('focused');
+         });
 
-        // Add 'focused' class to the clicked task container if found
         if (taskContainer) {
             taskContainer.classList.add('focused');
+        } else if (kappaContainer) {
+             kappaContainer.classList.add('focused');
         }
     });
 
 
-    // Add paste event listener to the grid
-    taskImagesGrid.addEventListener('paste', (event) => {
+    container.addEventListener('paste', (event) => { // Paste listener on the main container
+        console.log('Paste event fired on container.'); // Log paste event
         const items = event.clipboardData.items;
         let imageFile = null;
 
-        // Find the first image file in the clipboard items
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
                 imageFile = items[i].getAsFile();
+                console.log('Image file found in clipboard.'); // Log image file detection
                 break;
             }
         }
 
         if (imageFile) {
-            // Prevent default paste behavior
             event.preventDefault();
 
-            // Find the task container with the 'focused' class
-            const taskContainer = document.querySelector('.task-container.focused');
+            const focusedTaskContainer = container.querySelector('.task-container.focused');
+            const focusedKappaContainer = container.querySelector('.kappa-items-container.focused');
 
-            if (taskContainer) {
-                const taskName = taskContainer.id.replace('task-', '');
-                 const task = tasks[taskName.charAt(0).toUpperCase() + taskName.slice(1)]; // Capitalize first letter
+
+            console.log('Focused Task container:', focusedTaskContainer ? focusedTaskContainer.id : 'None'); // Log focused task container
+            console.log('Focused Kappa container:', focusedKappaContainer ? 'kappa-items-section' : 'None'); // Log focused kappa container
+
+
+            if (focusedTaskContainer) {
+                const taskName = focusedTaskContainer.id.replace('task-', '');
+                 const task = tasks[taskName.charAt(0).toUpperCase() + taskName.slice(1)];
 
                 if (task && task.domElements && task.domElements.fileInput) {
-                    // Create a DataTransfer object and add the file to it
+                    console.log(`Handling paste for task: ${taskName}`); // Log task paste handling
                     const dataTransfer = new DataTransfer();
                     dataTransfer.items.add(imageFile);
 
-                    // Assign the DataTransfer object's files to the file input
                     task.domElements.fileInput.files = dataTransfer.files;
 
-                    // Manually trigger a change event on the file input
                     const changeEvent = new Event('change', { bubbles: true });
                     task.domElements.fileInput.dispatchEvent(changeEvent);
 
@@ -322,15 +540,55 @@ if (taskImagesGrid) {
                      console.warn(`Paste event in focused task container, but could not find task object or file input for ${taskName}.`);
                 }
 
+            } else if (focusedKappaContainer) { // Check if Kappa container is focused
+                 console.log('Handling paste for Kappa section.'); // Log kappa paste handling
+                 // Directly load the image and update kappaState
+                 loadImageFile(imageFile, (img) => {
+                     console.log('Kappa image loaded after paste.'); // Log successful image load
+                     kappaState.image = img;
+                     drawKappaImageOnCanvas(); // Draw initial image
+                     if (kappaOriginalCanvas) kappaOriginalCanvas.style.display = 'block';
+                     if (kappaProcessedCanvas) kappaProcessedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
+
+                     reportKappaStatus('Image uploaded. Ready to process.');
+                     checkIfReady();
+
+                     kappaState.processingResults.foundItems = []; // Clear previous results
+                     kappaState.processingResults.missingItems = [];
+                     kappaState.processingResults.ocrRect = null;
+
+                     reportKappaOutput('');
+                     if (kappaMatchedItemsListDiv) kappaMatchedItemsListDiv.innerHTML = '';
+
+                     if (kappaOutputContent) kappaOutputContent.style.display = 'none';
+                     if (kappaOutputHeader) kappaOutputHeader.style.display = 'none';
+                     if (kappaOutputHeader) kappaOutputHeader.classList.remove('active');
+                     if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'none';
+                     if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'none';
+                     if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.classList.remove('active');
+
+
+                     if (kappaButtonsContainer) kappaButtonsContainer.style.display = 'flex';
+                     if (kappaProcessButton) kappaProcessButton.disabled = false;
+                     if (kappaClearButton) kappaClearButton.disabled = false;
+                 });
+
+
             } else {
-                 console.warn('Pasted image, but no task container is currently focused.');
-                 globalStatusDiv.textContent = 'Pasted image, but no task container is currently focused. Click on a task container before pasting.';
+                 console.warn('Pasted image, but no task or kappa container is currently focused.');
+                 globalStatusDiv.textContent = 'Pasted image, but no task or kappa container is currently focused. Click on a section before pasting.';
             }
+        } else {
+             console.warn('Paste event fired, but no image file found in clipboard items.'); // Log if no image file is found
+             globalStatusDiv.textContent = 'Pasted content is not an image.';
         }
     });
+} else {
+    console.error('Error: Main container element not found.');
 }
 
-function drawTaskImageOnCanvas(taskName) {
+
+const drawTaskImageOnCanvas = (taskName) => {
      const task = tasks[taskName];
      const { originalCanvas, originalCtx } = task.domElements;
      const { image, processingResults } = task;
@@ -377,15 +635,41 @@ function drawTaskImageOnCanvas(taskName) {
      }
 }
 
-function drawRect(ctx, rect, color, lineWidth) {
+// New function to draw Kappa image on canvas
+const drawKappaImageOnCanvas = () => {
+     const { image, processingResults } = kappaState;
+     const originalCanvas = kappaOriginalCanvas;
+     const originalCtx = originalCanvas ? originalCanvas.getContext('2d') : null;
+
+     if (!image || !originalCanvas || !originalCtx) return;
+
+     const { width, height } = image;
+     const ctx = originalCtx;
+
+     ctx.canvas.width = width;
+     ctx.canvas.height = height;
+
+     ctx.clearRect(0, 0, width, height);
+     ctx.drawImage(image, 0, 0, width, height);
+
+     // Draw green rectangles around found items
+     processingResults.foundItems.forEach(item => {
+         item.locations.forEach(loc => {
+             drawRect(ctx, loc, 'rgba(0, 255, 0, 1.0)', 2);
+         });
+     });
+}
+
+
+const drawRect = (ctx, rect, color, lineWidth) => {
      if (!ctx || !rect) return;
      ctx.strokeStyle = color;
      ctx.lineWidth = lineWidth;
      ctx.setLineDash([]);
      ctx.strokeRect(rect.left, rect.top, rect.width, rect.height);
-}
+};
 
-function loadImageFile(file, callback) {
+const loadImageFile = (file, callback) => {
     if (!file) return;
 
     const reader = new FileReader();
@@ -400,17 +684,20 @@ function loadImageFile(file, callback) {
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-}
+};
 
 function loadImageFromUrl(url, callback) {
      const img = new Image();
-     img.crossOrigin = 'anonymous';
+     img.crossOrigin = 'anonymous'; // Required for drawing images from other domains
      img.onload = () => {
          callback(img);
      };
      img.onerror = (e) => {
-         console.error('Error loading discriminant image from URL:', url, e);
-         globalStatusDiv.textContent = `Error loading discriminant image from ${url}. Please ensure the file exists at that path and CORS is configured correctly.`;
+         console.error('Error loading image from URL (likely CORS issue):', url, e);
+         // Don't update global status for individual icon loading errors
+         // You'll see the CORS error in the browser console.
+         // To fix this, you need a server-side proxy or CORS headers on the image server.
+         // For local development, temporarily disabling browser security might work but is NOT recommended.
      };
      img.src = url;
 }
@@ -476,10 +763,10 @@ function getRequiredCompletedTasks(identifiedTaskIds, taskTree) {
     return completedTasksList;
 }
 
-async function fetchTarkovTasks() {
-    globalStatusDiv.textContent = 'Fetching task data...';
+async function fetchTarkovData() {
+    reportGlobalStatus('Fetching data from Tarkov.dev...');
     const query = `
-        {
+        query TarkovData {
             tasks(lang: en) {
                 name
                 id
@@ -495,6 +782,20 @@ async function fetchTarkovTasks() {
                 }
                 wikiLink
             }
+             task(id: "${KAPPA_TASK_ID}") { # Fetch specific Kappa task for required items
+                 name
+                 objectives {
+                     ... on TaskObjectiveItem {
+                         id
+                         items {
+                             name
+                             id # Include ID for matching
+                             iconLink # Include iconLink for potential image matching later
+                             wikiLink # Include wikiLink for display
+                         }
+                     }
+                 }
+             }
         }
     `;
 
@@ -520,12 +821,44 @@ async function fetchTarkovTasks() {
 
         if (data.errors) {
             console.error('GraphQL errors:', data.errors);
-            globalStatusDiv.textContent = 'Error fetching task data. Check console.';
+            reportGlobalStatus('Error fetching data. Check console.');
             return null;
         }
 
         tarkovTasksData = data.data.tasks;
         console.log('Tarkov task data fetched:', tarkovTasksData);
+
+        // Extract Kappa required items from the fetched data
+        const kappaTask = data.data.task;
+        if (kappaTask && kappaTask.objectives) {
+            kappaRequiredItemsData = kappaTask.objectives.flatMap(objective =>
+                objective.items ? objective.items : []
+            );
+            console.log('Kappa required items fetched:', kappaRequiredItemsData);
+
+             // Load Kappa item icons
+             reportGlobalStatus('Loading Kappa item icons...');
+             const iconLoadPromises = kappaRequiredItemsData.map(item => {
+                 return new Promise((resolve, reject) => {
+                     if (!item.iconLink) {
+                         console.warn(`No iconLink for item: ${item.name}`);
+                         resolve(null); // Resolve with null if no iconLink
+                         return;
+                     }
+                     loadImageFromUrl(item.iconLink, (img) => {
+                         kappaRequiredItemIcons[item.id] = img;
+                         resolve(img);
+                     });
+                 });
+             });
+             await Promise.all(iconLoadPromises);
+             console.log('Kappa item icons loaded:', kappaRequiredItemIcons);
+
+        } else {
+            console.warn('Could not fetch Kappa task or its objectives.');
+            kappaRequiredItemsData = [];
+        }
+
 
         fuse = new Fuse(tarkovTasksData, {
              keys: ['name'],
@@ -539,36 +872,44 @@ async function fetchTarkovTasks() {
         });
         console.log('Fuse.js initialized with Tarkov task data.');
 
+        // Removed itemFuse initialization as it's no longer needed for Kappa item matching
+
         taskTree = buildTaskTree(tarkovTasksData);
         console.log('Task tree built:', taskTree);
 
         checkIfReady();
-        return tarkovTasksData;
+        return { tasks: tarkovTasksData, kappaItems: kappaRequiredItemsData };
 
     } catch (error) {
-        console.error('Error fetching Tarkov task data:', error);
-        globalStatusDiv.textContent = 'Error fetching task data. Check console.';
+        console.error('Error fetching Tarkov data:', error);
+        reportGlobalStatus('Error fetching data. Check console.');
         return null;
     }
 }
 
+
 function checkIfReady() {
     const anyTaskImageUploaded = taskNames.some(taskName => tasks[taskName] && tasks[taskName].image !== null);
-    const anyTaskMatched = taskNames.some(taskName => tasks[taskName] && tasks[taskName].processingResults && tasks[taskName].processingResults.identifiedCompletedTaskIds.size > 0);
+    const anyTaskMatched = taskNames.some(taskName => tasks[taskName] && tasks[taskName].processingResults && tasks[taskName].processingResults.requiredTasksToPost && tasks[taskName].processingResults.requiredTasksToPost.length > 0);
     const apiKeyPresent = apiKeyInput && apiKeyInput.value.trim() !== '';
+    const kappaImageUploaded = kappaState.image !== null;
+    // Check if all Kappa items are fetched and their icons are attempted to load (even if some failed due to CORS)
+    const kappaRequiredItemsLoaded = kappaRequiredItemsData.length > 0 && kappaRequiredItemsData.every(item => kappaRequiredItemIcons[item.id] !== undefined || item.iconLink === undefined);
+
+
+    if (tarkovTasksData.length > 0 && fuse && kappaRequiredItemsLoaded) {
+         reportGlobalStatus('Task and Item data loaded. Upload images to begin.');
+    } else {
+         reportGlobalStatus('Loading dependencies...');
+    }
+
 
     if (tarkovTasksData.length > 0 && anyTaskImageUploaded && fuse) {
         processAllButton.disabled = false;
-        globalStatusDiv.textContent = 'Task data loaded. Upload images and click "Process All" to begin.';
-    } else if (tarkovTasksData.length > 0 && fuse) {
-         globalStatusDiv.textContent = 'Task data loaded. Upload task images to enable processing.';
-         processAllButton.disabled = true;
     } else {
          processAllButton.disabled = true;
-         globalStatusDiv.textContent = 'Loading dependencies...';
     }
 
-    // Enable post button if any task has identified completed tasks AND API key is present
     const anyTaskHasRequiredToPost = taskNames.some(taskName =>
         tasks[taskName] && tasks[taskName].processingResults && tasks[taskName].processingResults.requiredTasksToPost && tasks[taskName].processingResults.requiredTasksToPost.length > 0
     );
@@ -578,6 +919,20 @@ function checkIfReady() {
     } else {
         postCompletedTasksButton.disabled = true;
     }
+
+     // Enable Kappa process button if image is uploaded and Kappa required item data and icons are loaded
+     if (kappaImageUploaded && kappaRequiredItemsLoaded && kappaProcessButton) {
+         kappaProcessButton.disabled = false;
+     } else if (kappaProcessButton) {
+         kappaProcessButton.disabled = true;
+     }
+
+     // Enable Kappa clear button if image is uploaded
+     if (kappaImageUploaded && kappaClearButton) {
+         kappaClearButton.disabled = false;
+     } else if (kappaClearButton) {
+         kappaClearButton.disabled = true;
+     }
 }
 
 async function processSingleTask(taskName) {
@@ -585,49 +940,34 @@ async function processSingleTask(taskName) {
     const { image, domElements, processingResults } = task;
 
     processingResults.identifiedCompletedTaskIds.clear();
-    processingResults.requiredTasksToPost = []; // Clear the array before processing
+    processingResults.requiredTasksToPost = [];
+
+    if (domElements.outputContent) domElements.outputContent.style.display = 'none';
+    if (domElements.outputHeader) domElements.outputHeader.style.display = 'none';
+    if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
+    if (domElements.wikiContent) domElements.wikiContent.style.display = 'none';
+    if (domElements.wikiHeader) domElements.wikiHeader.style.display = 'none';
+    if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
+    if (domElements.requiredTasksContent) domElements.requiredTasksContent.style.display = 'none';
+    if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.style.display = 'none';
+    if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
+
+
+    reportTaskOutput(taskName, '');
+    if (domElements.wikiLinksDiv) domElements.wikiLinksDiv.innerHTML = '';
+    if (domElements.requiredTasksDiv) domElements.requiredTasksDiv.innerHTML = '';
+
 
     if (!image && taskName !== "Ref") {
         reportTaskStatus(taskName, 'No image uploaded. Skipping.');
-        reportTaskOutput(taskName, '');
-        if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-        if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-        if (domElements.wikiLinksDiv) domElements.wikiLinksDiv.innerHTML = '';
-        if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-        if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-        if (domElements.requiredTasksDiv) domElements.requiredTasksDiv.innerHTML = '';
-        if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-        if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
-        if (domElements.originalCanvas) domElements.originalCanvas.style.display = 'none';
-        if (domElements.processedCanvas) domElements.processedCanvas.style.display = 'none';
         return;
     }
 
      if (taskName === "Ref" && !image) {
         reportTaskOutput(taskName, 'No Ref image provided.');
         reportTaskStatus(taskName, 'Processing skipped (no image).');
-        if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-        if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-        if (domElements.wikiLinksDiv) domElements.wikiLinksDiv.innerHTML = '';
-        if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-        if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-        if (domElements.requiredTasksDiv) domElements.requiredTasksDiv.innerHTML = '';
-        if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-        if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
-        if (domElements.originalCanvas) domElements.originalCanvas.style.display = 'none';
-        if (domElements.processedCanvas) domElements.processedCanvas.style.display = 'none';
         return;
     }
-
-    reportTaskOutput(taskName, '');
-    if (domElements.wikiLinksDiv) domElements.wikiLinksDiv.innerHTML = '';
-    if (domElements.requiredTasksDiv) domElements.requiredTasksDiv.innerHTML = '';
-    if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-    if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-    if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-    if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-    if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-    if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
 
     reportTaskStatus(taskName, `Processing ${taskName}...`);
 
@@ -673,12 +1013,6 @@ async function processSingleTask(taskName) {
              mask.delete();
              if (domElements.originalCanvas) domElements.originalCanvas.style.display = 'none';
              if (domElements.processedCanvas) domElements.processedCanvas.style.display = 'none';
-             if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-             if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-             if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-             if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-             if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-             if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
              return;
         }
 
@@ -705,7 +1039,7 @@ async function processSingleTask(taskName) {
 
         let discriminantsFound = 0;
 
-        if (matchLoc1.x >= 0 && matchLoc1.y >= 0 && matchLoc1.x < searchRect.width && matchLoc1.y < searchRect.height) {
+        if (minMaxResult1.maxVal > KAPPA_MATCH_THRESHOLD && matchLoc1.x >= 0 && matchLoc1.y >= 0 && matchLoc1.x < searchRect.width && matchLoc1.y < searchRect.height) {
              processingResults.discriminant1Rect = {
                  left: matchLoc1.x + searchRect.x,
                  top: matchLoc1.y + searchRect.y,
@@ -715,7 +1049,7 @@ async function processSingleTask(taskName) {
              discriminantsFound++;
         }
 
-        if (matchLoc2.x >= 0 && matchLoc2.y >= 0 && matchLoc2.x < searchRect.width && matchLoc2.y < searchRect.height) {
+        if (minMaxResult2.maxVal > KAPPA_MATCH_THRESHOLD && matchLoc2.x >= 0 && matchLoc2.y >= 0 && matchLoc2.x < searchRect.width && matchLoc2.y < searchRect.height) {
              processingResults.discriminant2Rect = {
                  left: matchLoc2.x + searchRect.x,
                  top: matchLoc2.y + searchRect.y,
@@ -1028,19 +1362,19 @@ async function processSingleTask(taskName) {
 
                        reportTaskOutput(taskName, output);
 
-                       if (domElements.wikiLinksDiv) {
-                           if (wikiLinksHtml) {
-                               domElements.wikiLinksDiv.innerHTML = '<h4>Wiki Links:</h4><ul>' + wikiLinksHtml + '</ul>';
-                           } else {
-                                domElements.wikiLinksDiv.innerHTML = '';
-                                if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-                                if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-                           }
+                       if (domElements.wikiLinksDiv && wikiLinksHtml) {
+                           domElements.wikiLinksDiv.innerHTML = '<h4>Wiki Links:</h4><ul>' + wikiLinksHtml + '</ul>';
+                           if (domElements.wikiHeader) domElements.wikiHeader.style.display = 'block';
+                           if (domElements.wikiContent) domElements.wikiContent.style.display = 'none';
+                       } else {
+                            if (domElements.wikiLinksDiv) domElements.wikiLinksDiv.innerHTML = '';
+                            if (domElements.wikiHeader) domElements.wikiHeader.style.display = 'none';
+                            if (domElements.wikiContent) domElements.wikiContent.style.display = 'none';
+                            if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
                        }
 
                        if (domElements.requiredTasksDiv && Object.keys(taskTree).length > 0) {
                             const requiredCompletedTasks = getRequiredCompletedTasks(Array.from(processingResults.identifiedCompletedTaskIds), taskTree);
-                            // Store the IDs of required tasks to post
                             processingResults.requiredTasksToPost = requiredCompletedTasks.map(task => task.id);
 
                             let requiredTasksHtml = '';
@@ -1057,112 +1391,305 @@ async function processSingleTask(taskName) {
                             domElements.requiredTasksDiv.innerHTML = requiredTasksHtml;
 
                             if (requiredTasksHtml.trim().length > 0 && requiredTasksHtml !== 'No specific prerequisite tasks identified based on OCR results.') {
+                                if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.style.display = 'block';
+                                if (domElements.requiredTasksContent) domElements.requiredTasksContent.style.display = 'none';
                             } else {
-                                 if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
+                                 if (domElements.requiredTasksDiv) domElements.requiredTasksDiv.innerHTML = '';
+                                 if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.style.display = 'none';
+                                 if (domElements.requiredTasksContent) domElements.requiredTasksContent.style.display = 'none';
                                  if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
                             }
                        } else if (domElements.requiredTasksDiv) {
                             domElements.requiredTasksDiv.innerHTML = 'Task dependency data not available.';
-                             if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
+                             if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.style.display = 'block';
+                             if (domElements.requiredTasksContent) domElements.requiredTasksContent.style.display = 'none';
                              if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
                        }
+
+                       if (output.trim().length > 0) {
+                            if (domElements.outputHeader) domElements.outputHeader.style.display = 'block';
+                            if (domElements.outputContent) domElements.outputContent.style.display = 'none';
+                       } else {
+                            if (domElements.outputHeader) domElements.outputHeader.style.display = 'none';
+                            if (domElements.outputContent) domElements.outputContent.style.display = 'none';
+                            if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
+                       }
+
 
                        reportTaskStatus(taskName, `Processing complete for ${taskName}.`);
 
                   } else {
                        reportTaskOutput(taskName, 'Failed to prepare image for OCR.');
                        reportTaskStatus(taskName, 'Failed to prepare image for OCR.');
-                        if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-                        if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-                        if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-                        if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-                        if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-                        if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
+                       if (domElements.outputHeader) domElements.outputHeader.style.display = 'block';
+                       if (domElements.outputContent) domElements.outputContent.style.display = 'none';
                   }
             } else {
-                processingResults.requiredTasksToPost = []; // Ensure this is empty if OCR fails
+                processingResults.requiredTasksToPost = [];
                 reportTaskOutput(taskName, 'Calculated OCR region is invalid (zero width or height).');
                 reportTaskStatus(taskName, 'OCR region invalid.');
                 drawTaskImageOnCanvas(taskName);
                 if (domElements.processedCanvas) domElements.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
-                 if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-                 if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-                 if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-                 if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-                 if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-                 if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
+                if (domElements.outputHeader) domElements.outputHeader.style.display = 'block';
+                if (domElements.outputContent) domElements.outputContent.style.display = 'none';
             }
 
         } else {
             processingResults.discriminant1Rect = null;
             processingResults.discriminant2Rect = null;
             processingResults.ocrRect = null;
-            processingResults.requiredTasksToPost = []; // Ensure this is empty if discriminants not found
+            processingResults.requiredTasksToPost = [];
             reportTaskOutput(taskName, 'One or both discriminant shapes not found.');
             reportTaskStatus(taskName, 'Discriminants not found.');
             drawTaskImageOnCanvas(taskName);
             if (domElements.processedCanvas) domElements.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
-            if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-            if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-            if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-            if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-            if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-            if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
+            if (domElements.outputHeader) domElements.outputHeader.style.display = 'block';
+            if (domElements.outputContent) domElements.outputContent.style.display = 'none';
         }
     } catch (error) {
         console.error(`Error processing ${taskName}:`, error);
         reportTaskStatus(taskName, `Error processing ${taskName}. Check console.`);
         reportTaskOutput(taskName, `Error: ${error.message}`);
-        processingResults.requiredTasksToPost = []; // Ensure this is empty on error
+        processingResults.requiredTasksToPost = [];
         if (domElements.processedCanvas) domElements.processedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
-        if (domElements.outputContent) domElements.outputContent.classList.remove('active');
-        if (domElements.outputHeader) domElements.outputHeader.classList.remove('active');
-        if (domElements.wikiContent) domElements.wikiContent.classList.remove('active');
-        if (domElements.wikiHeader) domElements.wikiHeader.classList.remove('active');
-        if (domElements.requiredTasksContent) domElements.requiredTasksContent.classList.remove('active');
-        if (domElements.requiredTasksHeader) domElements.requiredTasksHeader.classList.remove('active');
+        if (domElements.outputHeader) domElements.outputHeader.style.display = 'block';
+        if (domElements.outputContent) domElements.outputContent.style.display = 'none';
     } finally {
-        checkIfReady(); // Re-check button state after processing each task
+        checkIfReady();
     }
 }
 
+// New function to process Kappa image using template matching
+async function processKappaImage() {
+    if (!kappaState.image) {
+        reportKappaStatus('No image uploaded for Kappa items.');
+        return;
+    }
+
+    // Filter out items for which the icon failed to load (likely due to CORS)
+    const itemsToDetect = kappaRequiredItemsData.filter(item => kappaRequiredItemIcons[item.id] !== undefined);
+
+    if (itemsToDetect.length === 0) {
+         reportKappaStatus('No Kappa item icons loaded. Cannot process.');
+         // Display all items as missing if no icons could be loaded
+         kappaState.processingResults.missingItems = [...kappaRequiredItemsData];
+         displayMatchedKappaItems();
+         if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'block';
+         if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'block';
+         return;
+    }
+
+
+    reportKappaStatus('Processing Kappa image...');
+    reportKappaOutput('Starting Kappa item detection...');
+
+    kappaState.processingResults.foundItems = [];
+    kappaState.processingResults.missingItems = [];
+
+    const src = cv.imread(kappaState.image);
+    const srcGray = new cv.Mat();
+    cv.cvtColor(src, srcGray, cv.COLOR_RGBA2GRAY, 0);
+
+    const foundItemIds = new Set();
+
+    for (const item of itemsToDetect) {
+        const iconImage = kappaRequiredItemIcons[item.id];
+        // We already filtered out items without icons, so iconImage should exist here
+        if (!iconImage) continue;
+
+
+        const templ = cv.imread(iconImage);
+        const templGray = new cv.Mat();
+        cv.cvtColor(templ, templGray, cv.COLOR_RGBA2GRAY, 0);
+
+        const dst = new cv.Mat();
+        const mask = new cv.Mat();
+
+        try {
+            // Use the original image size for matchTemplate to get correct coordinates
+            cv.matchTemplate(srcGray, templGray, dst, cv.TM_CCOEFF_NORMED, mask);
+
+            // Find multiple matches by thresholding the result
+            cv.threshold(dst, dst, KAPPA_MATCH_THRESHOLD, 1, cv.THRESH_BINARY);
+
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            let itemFoundLocations = [];
+            for (let i = 0; i < contours.size(); ++i) {
+                let rect = cv.boundingRect(contours.get(i));
+                 // The rect from boundingRect on the thresholded result in matchTemplate coordinates
+                 // corresponds to the top-left corner of the template match.
+                 // The width and height should be the template's dimensions.
+                 const originalRect = {
+                     left: rect.x,
+                     top: rect.y,
+                     width: templGray.cols,
+                     height: templGray.rows
+                 };
+                itemFoundLocations.push(originalRect);
+            }
+
+            if (itemFoundLocations.length > 0) {
+                kappaState.processingResults.foundItems.push({
+                    item: item,
+                    locations: itemFoundLocations
+                });
+                foundItemIds.add(item.id);
+                reportKappaOutput(`Found "${item.name}" ${itemFoundLocations.length} time(s).\n`, true);
+            }
+
+
+        } catch (error) {
+            console.error(`Error during template matching for ${item.name}:`, error);
+            reportKappaOutput(`Error detecting "${item.name}": ${error.message}\n`, true);
+            // Don't add to missing items here, it's handled after the loop
+        } finally {
+            templ.delete();
+            templGray.delete();
+            dst.delete();
+            mask.delete();
+            contours.delete();
+            hierarchy.delete();
+        }
+    }
+
+    // Identify truly missing items (those not found at all)
+    // Include items that failed to load icons as missing
+    kappaState.processingResults.missingItems = kappaRequiredItemsData.filter(item => !foundItemIds.has(item.id));
+
+
+    src.delete();
+    srcGray.delete();
+
+
+    drawKappaImageOnCanvas(); // Redraw canvas with rectangles
+
+    displayMatchedKappaItems(); // Update the missing items list
+
+    reportKappaStatus('Kappa item detection complete.');
+
+     if (kappaOutputContent) kappaOutputContent.style.display = 'block';
+     if (kappaOutputHeader) kappaOutputHeader.style.display = 'block';
+     // Only show matched items content if there are items to display (found or missing)
+     if (kappaState.processingResults.foundItems.length > 0 || kappaState.processingResults.missingItems.length > 0) {
+         if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'block';
+         if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'block';
+     }
+
+
+    checkIfReady();
+}
+
+// New function to clear Kappa section
+const clearKappaImage = () => {
+    kappaState.image = null;
+    kappaState.processingResults.foundItems = [];
+    kappaState.processingResults.missingItems = [];
+    kappaState.processingResults.ocrRect = null; // Keep this in case we add OCR back later
+
+    if (kappaOriginalCanvas) {
+        const ctx = kappaOriginalCanvas.getContext('2d');
+        ctx.clearRect(0, 0, kappaOriginalCanvas.width, kappaOriginalCanvas.height);
+        kappaOriginalCanvas.style.display = 'none';
+    }
+    if (kappaProcessedCanvas) {
+        const ctx = kappaProcessedCanvas.getContext('2d');
+        ctx.clearRect(0, 0, kappaProcessedCanvas.width, kappaProcessedCanvas.height);
+        kappaProcessedCanvas.style.display = 'none';
+    }
+
+    if (kappaFileInput) {
+        kappaFileInput.value = '';
+    }
+
+    reportKappaOutput('');
+    if (kappaMatchedItemsListDiv) kappaMatchedItemsListDiv.innerHTML = '';
+
+    if (kappaOutputContent) kappaOutputContent.style.display = 'none';
+    if (kappaOutputHeader) kappaOutputHeader.style.display = 'none';
+    if (kappaOutputHeader) kappaOutputHeader.classList.remove('active');
+    if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'none';
+    if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'none';
+    if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.classList.remove('active');
+
+
+    if (kappaButtonsContainer) kappaButtonsContainer.style.display = 'none';
+
+    reportKappaStatus('Awaiting image upload.');
+
+    if (kappaProcessButton) kappaProcessButton.disabled = true;
+    if (kappaClearButton) kappaClearButton.disabled = true;
+
+    checkIfReady();
+};
+
+// New function to display matched Kappa items (now focuses on missing items)
+const displayMatchedKappaItems = () => {
+    if (kappaMatchedItemsListDiv) {
+        let itemsHtml = '';
+        if (kappaState.processingResults.missingItems.length > 0) {
+            itemsHtml += '<h4>Missing Items:</h4><ul>';
+            kappaState.processingResults.missingItems.sort((a, b) => a.name.localeCompare(b.name));
+            kappaState.processingResults.missingItems.forEach(item => {
+                itemsHtml += `<li>${item.name} (${item.id}) - <a href="${item.wikiLink}" target="_blank">Wiki</a></li>`;
+            });
+            itemsHtml += '</ul>';
+        } else if (kappaState.processingResults.foundItems.length > 0) {
+             itemsHtml = 'All required Kappa items found in the image!';
+        } else {
+             itemsHtml = 'No Kappa items detected yet.';
+        }
+        kappaMatchedItemsListDiv.innerHTML = itemsHtml;
+
+        // Show the header if there are missing items or if all items were found
+        if (kappaState.processingResults.missingItems.length > 0 || kappaState.processingResults.foundItems.length > 0) {
+             if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'block';
+             if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'none'; // Keep content hidden by default
+        } else {
+             if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'none';
+             if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'none';
+             if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.classList.remove('active');
+        }
+    }
+};
+
+
 processAllButton.addEventListener('click', async () => {
      if (!discriminantImage1 || !discriminantImage2 || tarkovTasksData.length === 0 || Object.keys(taskTree).length === 0 || !fuse) {
-         globalStatusDiv.textContent = 'Error: Dependencies not loaded.';
+         reportGlobalStatus('Error: Dependencies not loaded.');
          return;
      }
 
      processAllButton.disabled = true;
-     postCompletedTasksButton.disabled = true; // Disable post button during processing
-     globalStatusDiv.textContent = 'Starting processing...';
+     postCompletedTasksButton.disabled = true;
+     reportGlobalStatus('Starting processing all images...');
 
      const processingPromises = taskNames.map(taskName => processSingleTask(taskName));
 
      await Promise.all(processingPromises);
 
-     globalStatusDiv.textContent = 'Processing complete.';
-     checkIfReady(); // Re-check button state after all tasks are processed
+     reportGlobalStatus('Processing of all images complete.');
+     checkIfReady();
 });
 
 postCompletedTasksButton.addEventListener('click', async () => {
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
     if (!apiKey) {
-        globalStatusDiv.textContent = 'Please enter your TarkovTracker API key.';
+        reportGlobalStatus('Please enter your TarkovTracker API key.');
         return;
     }
 
     postCompletedTasksButton.disabled = true;
-    globalStatusDiv.textContent = 'Preparing tasks for posting...';
+    reportGlobalStatus('Preparing tasks for posting...');
 
-    // Collect all required task IDs from all processed tasks
     const tasksToPost = [];
     taskNames.forEach(taskName => {
         const task = tasks[taskName];
-        // Check if the task was processed and has required tasks identified
         if (task && task.processingResults && task.processingResults.requiredTasksToPost && task.processingResults.requiredTasksToPost.length > 0) {
             task.processingResults.requiredTasksToPost.forEach(taskId => {
-                // Add task ID to the list if not already present
                 if (!tasksToPost.some(task => task.id === taskId)) {
                      tasksToPost.push({ id: taskId, state: "completed" });
                 }
@@ -1171,14 +1698,13 @@ postCompletedTasksButton.addEventListener('click', async () => {
     });
 
     if (tasksToPost.length === 0) {
-        globalStatusDiv.textContent = 'No completed tasks identified to post.';
-        postCompletedTasksButton.disabled = false; // Re-enable if nothing to post
+        reportGlobalStatus('No completed tasks identified to post.');
+        postCompletedTasksButton.disabled = false;
         return;
     }
 
-    globalStatusDiv.textContent = `Posting ${tasksToPost.length} completed tasks to TarkovTracker...`;
+    reportGlobalStatus(`Posting ${tasksToPost.length} completed tasks to TarkovTracker...`);
 
-    // New API endpoint for batch updates
     const postUrl = `https://tarkovtracker.io/api/v2/progress/tasks/`;
 
     const headers = {
@@ -1191,14 +1717,13 @@ postCompletedTasksButton.addEventListener('click', async () => {
         const response = await fetch(postUrl, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(tasksToPost) // Send the array of tasks
+            body: JSON.stringify(tasksToPost)
         });
 
         if (response.ok) {
             console.log(`Successfully posted ${tasksToPost.length} tasks as completed.`);
-            globalStatusDiv.textContent = `Successfully posted ${tasksToPost.length} tasks as completed.`;
+            reportGlobalStatus(`Successfully posted ${tasksToPost.length} tasks as completed.`);
 
-            // Optional: Update task outputs to indicate successful posting
             tasksToPost.forEach(postedTask => {
                  taskNames.forEach(taskName => {
                     const task = tasks[taskName];
@@ -1211,9 +1736,8 @@ postCompletedTasksButton.addEventListener('click', async () => {
         } else {
             const errorText = await response.text();
             console.error(`Failed to post tasks. Status: ${response.status}. Response: ${errorText}`);
-            globalStatusDiv.textContent = `Failed to post tasks. Status: ${response.status}.`;
+            reportGlobalStatus(`Failed to post tasks. Status: ${response.status}.`);
 
-            // Optional: Update task outputs to indicate failed posting
              tasksToPost.forEach(postedTask => {
                  taskNames.forEach(taskName => {
                     const task = tasks[taskName];
@@ -1225,9 +1749,8 @@ postCompletedTasksButton.addEventListener('click', async () => {
         }
     } catch (error) {
         console.error(`Error during fetch for batch update:`, error);
-        globalStatusDiv.textContent = `Error posting tasks: ${error.message}`;
+        reportGlobalStatus(`Error posting tasks: ${error.message}`);
 
-        // Optional: Update task outputs to indicate fetch error
          tasksToPost.forEach(postedTask => {
              taskNames.forEach(taskName => {
                 const task = tasks[taskName];
@@ -1237,12 +1760,12 @@ postCompletedTasksButton.addEventListener('click', async () => {
              });
          });
     } finally {
-        checkIfReady(); // Re-enable buttons after posting attempt
+        checkIfReady();
     }
 });
 
 
-globalStatusDiv.textContent = 'Loading dependencies...';
+reportGlobalStatus('Loading dependencies...');
 
 const loadOpenCv = new Promise((resolve, reject) => {
     if (typeof cv !== 'undefined' && typeof cv.Mat !== 'undefined') {
@@ -1280,7 +1803,7 @@ const loadFuse = new Promise((resolve) => {
 Promise.all([
      loadOpenCv,
      loadFuse,
-     fetchTarkovTasks(),
+     fetchTarkovData(), // Fetch both tasks and items, and load Kappa icons
      new Promise((resolve, reject) => {
          loadImageFromUrl(DISCRIMINANT_IMAGE_PATHS[0], (img) => {
              discriminantImage1 = img;
@@ -1297,9 +1820,11 @@ Promise.all([
      checkIfReady();
 }).catch(error => {
      console.error("Error loading dependencies:", error);
-     globalStatusDiv.textContent = 'Error loading dependencies. Check console for details.';
+     reportGlobalStatus('Error loading dependencies. Check console for details.');
      processAllButton.disabled = true;
      postCompletedTasksButton.disabled = true;
+     if (kappaProcessButton) kappaProcessButton.disabled = true;
+     if (kappaClearButton) kappaClearButton.disabled = true;
 });
 
 taskNames.forEach(taskName => {
@@ -1311,13 +1836,119 @@ taskNames.forEach(taskName => {
          if (task.domElements.wikiLinksDiv) task.domElements.wikiLinksDiv.innerHTML = '';
          if (task.domElements.requiredTasksDiv) task.domElements.requiredTasksDiv.innerHTML = '';
 
-         // Changed from 'active' to 'focused'
-         if (task.domElements.outputContent) task.domElements.outputContent.classList.remove('active');
+         if (task.domElements.outputContent) task.domElements.outputContent.style.display = 'none';
+         if (task.domElements.outputHeader) task.domElements.outputHeader.style.display = 'none';
          if (task.domElements.outputHeader) task.domElements.outputHeader.classList.remove('active');
-         if (task.domElements.wikiContent) task.domElements.wikiContent.classList.remove('active');
+         if (task.domElements.wikiContent) task.domElements.wikiContent.style.display = 'none';
+         if (task.domElements.wikiHeader) task.domElements.wikiHeader.style.display = 'none';
          if (task.domElements.wikiHeader) task.domElements.wikiHeader.classList.remove('active');
-         if (task.domElements.requiredTasksContent) task.domElements.requiredTasksContent.classList.remove('active');
+         if (task.domElements.requiredTasksContent) task.domElements.requiredTasksContent.style.display = 'none';
+         if (task.domElements.requiredTasksHeader) task.domElements.requiredTasksHeader.style.display = 'none';
          if (task.domElements.requiredTasksHeader) task.domElements.requiredTasksHeader.classList.remove('active');
+
+
+         if (task.domElements.taskButtonsContainer) task.domElements.taskButtonsContainer.style.display = 'none';
+
+         if (task.domElements.processButton) task.domElements.processButton.disabled = true;
+         if (task.domElements.clearButton) task.domElements.clearButton.disabled = true;
      }
 });
 
+// Initialize Kappa section state and display
+if (kappaOriginalCanvas) kappaOriginalCanvas.style.display = 'none';
+if (kappaProcessedCanvas) kappaProcessedCanvas.style.display = 'none'; // Ensure processed canvas is also hidden initially
+if (kappaOutputArea) kappaOutputArea.value = '';
+if (kappaMatchedItemsListDiv) kappaMatchedItemsListDiv.innerHTML = '';
+
+if (kappaOutputContent) kappaOutputContent.style.display = 'none';
+if (kappaOutputHeader) kappaOutputHeader.style.display = 'none';
+if (kappaOutputHeader) kappaOutputHeader.classList.remove('active');
+if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'none';
+if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'none';
+if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.classList.remove('active');
+
+
+if (kappaButtonsContainer) kappaButtonsContainer.style.display = 'none';
+
+reportKappaStatus('Awaiting image upload.');
+
+// Add event listeners for Kappa file input and buttons
+if (kappaFileInput) {
+    kappaFileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        loadImageFile(file, (img) => {
+            kappaState.image = img;
+            drawKappaImageOnCanvas(); // Draw initial image
+            if (kappaOriginalCanvas) kappaOriginalCanvas.style.display = 'block';
+            // Only show processed canvas in dev mode after image load
+            if (kappaProcessedCanvas) kappaProcessedCanvas.style.display = IS_DEV_MODE ? 'block' : 'none';
+
+
+            reportKappaStatus('Image uploaded. Ready to process.');
+            checkIfReady();
+
+            kappaState.processingResults.foundItems = []; // Clear previous results
+            kappaState.processingResults.missingItems = [];
+            kappaState.processingResults.ocrRect = null; // Keep this in case we add OCR back later
+
+
+            reportKappaOutput('');
+            if (kappaMatchedItemsListDiv) kappaMatchedItemsListDiv.innerHTML = '';
+
+            if (kappaOutputContent) kappaOutputContent.style.display = 'none';
+            if (kappaOutputHeader) kappaOutputHeader.style.display = 'none';
+            if (kappaOutputHeader) kappaOutputHeader.classList.remove('active');
+            if (kappaMatchedItemsContent) kappaMatchedItemsContent.style.display = 'none';
+            if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.style.display = 'none';
+            if (kappaMatchedItemsHeader) kappaMatchedItemsHeader.classList.remove('active');
+
+
+            if (kappaButtonsContainer) kappaButtonsContainer.style.display = 'flex';
+            if (kappaProcessButton) kappaProcessButton.disabled = false;
+            if (kappaClearButton) kappaClearButton.disabled = false;
+        });
+    });
+}
+
+if (kappaProcessButton) {
+    kappaProcessButton.addEventListener('click', async () => {
+        await processKappaImage();
+    });
+}
+
+if (kappaClearButton) {
+    kappaClearButton.addEventListener('click', () => {
+        clearKappaImage();
+    });
+}
+
+// Add collapsible header functionality for Kappa section
+if (kappaItemsSection) {
+    kappaItemsSection.addEventListener('click', (event) => {
+        const target = event.target;
+        const header = target.closest('.collapsible-header');
+        if (header && header.style.display !== 'none') {
+            const contentId = header.dataset.target;
+            const contentElement = document.getElementById(contentId);
+            if (contentElement) {
+                 const hasContent = contentElement.textContent.trim().length > 0 || contentElement.querySelector('textarea')?.value.trim().length > 0 || contentElement.querySelector('ul')?.children.length > 0;
+                 if (hasContent || contentElement.id === 'output-kappa' || contentElement.id === 'matched-kappa-items') { // Allow both output and matched items headers to toggle
+                     contentElement.classList.toggle('active');
+                     header.classList.toggle('active');
+                     if (contentElement.classList.contains('active')) {
+                         contentElement.style.display = 'block';
+                     } else {
+                         contentElement.style.display = 'none';
+                     }
+                 }
+            }
+        }
+    });
+}
+
+// Helper function to report global status
+function reportGlobalStatus(message) {
+    if (globalStatusDiv) {
+        globalStatusDiv.textContent = message;
+    }
+}
