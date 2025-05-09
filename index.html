@@ -59,7 +59,6 @@
              color: #e0e0e0;
          }
 
-        /* Global Controls Area */
         #global-controls {
             margin-bottom: 0;
             padding: 15px;
@@ -83,7 +82,6 @@
              cursor: pointer;
          }
 
-         /* API Key Input Styling */
          #api-key-container {
              width: 100%;
              text-align: left;
@@ -108,7 +106,6 @@
              font-size: 1em;
          }
 
-        /* Style for the link within the API key label */
          #api-key-container label a {
              color: #f39c12;
              text-decoration: none;
@@ -121,7 +118,6 @@
              text-decoration: underline;
          }
 
-        /* Container for buttons */
         #button-container {
             display: flex;
             gap: 10px;
@@ -130,7 +126,6 @@
              width: 100%;
         }
 
-        /* Button Styling */
         button {
             background-color: #f39c12;
             color: #1a1a1a;
@@ -163,7 +158,6 @@
              color: #b0b0b0;
         }
 
-        /* File Input Styling */
         .file-input-container {
             margin-bottom: 15px;
             text-align: left;
@@ -193,7 +187,6 @@
             background-color: #666;
         }
 
-        /* Status Display */
         #global-status {
             margin-top: 0;
             font-size: 1.1em;
@@ -201,7 +194,6 @@
             min-height: 1.5em;
         }
 
-        /* Task Grid Layout */
         #task-images-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -209,8 +201,7 @@
             width: 100%;
         }
 
-        /* Individual Task Container */
-        .task-container {
+        .task-container, .kappa-items-container {
             background-color: #3a3a3a;
             padding: 20px;
             border-radius: 6px;
@@ -225,13 +216,27 @@
              color: #e0e0e0;
         }
 
-        /* Style for focused task container */
-        .task-container.focused {
+        .task-container.focused, .kappa-items-container.focused {
             border-color: #f39c12;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
-        /* Canvas Styling */
+        .task-buttons, .kappa-buttons {
+            display: flex; /* Use flexbox */
+            flex-direction: row; /* Arrange items in a row */
+            gap: 10px; /* Add space between buttons */
+            justify-content: center; /* Center buttons horizontally */
+            width: 100%; /* Take up full width */
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+
+        .task-buttons button, .kappa-buttons button {
+             flex-grow: 1; /* Allow buttons to grow and fill available space */
+             flex-basis: 0; /* Distribute space equally */
+             min-width: 120px; /* Ensure a minimum width for buttons */
+        }
+
+
         .canvas-container {
             display: flex;
             gap: 10px;
@@ -239,7 +244,7 @@
              justify-content: center;
         }
 
-        .task-canvas {
+        .task-canvas, .kappa-canvas {
             border: 1px solid #555;
             background-color: #444;
             max-width: 100%;
@@ -247,15 +252,13 @@
             border-radius: 4px;
         }
 
-        /* Task Status */
-        .task-status {
+        .task-status, .kappa-status {
             font-size: 0.9em;
             color: #b0b0b0;
             min-height: 1.2em;
         }
 
-        /* OCR Output Area */
-        .task-output {
+        .task-output, .kappa-output {
             width: 100%;
             height: 150px;
             background-color: #444;
@@ -269,7 +272,6 @@
              font-size: 0.9em;
         }
 
-        /* Collapsible Headers */
          .collapsible-header {
              background-color: #555;
              color: #f0f0f0;
@@ -290,13 +292,11 @@
              display: block;
          }
 
-         /* Collapsible Content */
          .collapsible-content {
              display: none;
              padding: 10px 0;
          }
 
-         /* Wiki Links Styling */
          .wiki-links ul {
              list-style: none;
              padding: 0;
@@ -318,7 +318,6 @@
              text-decoration: underline;
          }
 
-         /* Required Tasks Styling */
          .required-tasks ul {
              list-style: disc inside;
              padding-left: 15px;
@@ -329,29 +328,26 @@
              margin-bottom: 3px;
          }
 
-        /* Style for the h2 at the bottom to make it smaller and right-aligned */
         .container > h2:last-child {
-            font-size: 0.9em; /* Make it smaller */
-            text-align: right; /* Align to the right */
-            margin-top: 20px; /* Add some space above it */
-            margin-bottom: 0; /* Remove default bottom margin */
-            color: #b0b0b0; /* Keep it slightly subdued text color */
+            font-size: 0.9em;
+            text-align: right;
+            margin-top: 20px;
+            margin-bottom: 0;
+            color: #b0b0b0;
         }
 
-        /* Style for the links in the moved h2 at the bottom */
         .container > h2:last-child a {
-            color: #f39c12; /* Match API key link color */
+            color: #f39c12;
             text-decoration: none;
             transition: color 0.2s ease;
         }
 
         .container > h2:last-child a:hover {
-            color: #e67e22; /* Match API key link hover color */
+            color: #e67e22;
             text-decoration: underline;
         }
 
 
-        /* Responsive Adjustments */
         @media (max-width: 768px) {
             body {
                 padding: 15px;
@@ -365,9 +361,9 @@
              h2 {
                 font-size: 1.4em;
              }
-             .container > h2:last-child { /* Adjust size for the moved h2 */
-                 font-size: 0.8em; /* Smaller on mobile */
-                 text-align: center; /* Center on smaller screens if right alignment looks odd */
+             .container > h2:last-child {
+                 font-size: 0.8em;
+                 text-align: center;
              }
              h3 {
                 font-size: 1.1em;
@@ -390,8 +386,8 @@
              h2 {
                 font-size: 1.1em;
              }
-              .container > h2:last-child { /* Adjust size for the moved h2 */
-                 font-size: 0.7em; /* Even smaller on very small screens */
+              .container > h2:last-child {
+                 font-size: 0.7em;
                  text-align: center;
              }
              button {
@@ -413,12 +409,14 @@
 
     <div class="container">
         <h1>Tarkov Tracker OCR catchup</h1>
+         <p class="paste-note">Tip: You can paste images directly from your clipboard!</p>
 
         <div id="global-controls">
              <div id="api-key-container">
                  <label for="api-key-input">Tarkov Tracker Token (<a href="https://tarkovtracker.io/settings" target="_blank" rel="noopener noreferrer">Find your token here</a>):</label>
                  <input type="text" id="api-key-input" placeholder="Enter API Key">
              </div>
+
              <div id="button-container">
                  <button id="process-all-tasks" disabled>Process All Uploaded Images</button>
                  <button id="post-completed-tasks-button" disabled>Post Completed Tasks to TarkovTracker</button>
@@ -427,8 +425,33 @@
 
         <div id="global-status">Loading dependencies...</div>
 
-        <div id="task-images-grid">
+        <div id="task-images-grid"></div>
+
+        <div class="kappa-items-container" id="kappa-items-section">
+            <h3>Kappa Items</h3>
+            <div class="file-input-container">
+                <label for="upload-kappa-items">Upload Kappa Items Image:</label>
+                <input type="file" id="upload-kappa-items" accept="image/*">
             </div>
+             <div class="canvas-container">
+                <canvas class="kappa-canvas original-canvas"></canvas>
+                <canvas class="kappa-canvas processed-canvas"></canvas>
+            </div>
+            <div class="kappa-status">Awaiting image upload.</div>
+            <div class="kappa-buttons" style="display: none;">
+                <button id="process-kappa-items" disabled>Process Kappa Image</button>
+                <button id="clear-kappa-items" disabled>Clear Kappa Image</button>
+            </div>
+            <div class="collapsible-header" data-target="output-kappa" style="display: none;">OCR Output</div>
+            <div class="collapsible-content" id="output-kappa" style="display: none;">
+                 <textarea class="kappa-output" readonly></textarea>
+            </div>
+             <div class="collapsible-header" data-target="matched-kappa-items" style="display: none;">Matched Items</div>
+            <div class="collapsible-content" id="matched-kappa-items" style="display: none;">
+                 <div class="matched-items-list"></div>
+            </div>
+        </div>
+
 
         <h2>using <a href="https://opencv.org/">opencv</a> + <a href="https://tesseract.projectnaptha.com/">Tesseract.js</a></h2>
     </div>
