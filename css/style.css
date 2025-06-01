@@ -1,0 +1,562 @@
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    background-color: #2c2c2c;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 20px;
+    border: 1px solid #555;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+h1, h2, h3 {
+    color: #f0f0f0;
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-shadow: none;
+}
+
+h1 {
+    font-size: 2.5em;
+    font-weight: 700;
+}
+
+ h2 {
+    font-size: 1.6em;
+    font-weight: 600;
+    color: #b0b0b0;
+ }
+
+ h3 {
+    font-size: 1.3em;
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-align: left;
+     color: #e0e0e0;
+ }
+
+ .note {
+    color: #aaa;
+    font-style: italic;
+    font-size: 0.9em;
+    margin-top: -10px;
+ }
+
+ #upload-info-section {
+    background-color: #3a3a3a;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: left;
+    border: 1px solid #555;
+}
+
+#upload-info-section h2 {
+    text-align: center;
+    color: #f0f0f0;
+    margin-bottom: 15px;
+}
+
+#upload-info-section p {
+    margin-bottom: 10px;
+    line-height: 1.6;
+    color: #c0c0c0;
+}
+
+#upload-info-section strong {
+    color: #f39c12;
+}
+
+#upload-info-section button {
+    display: block;
+    margin: 15px auto 0; /* Center button */
+    min-width: 180px; /* Give it some width */
+    flex-grow: 0; /* Prevent it from taking full width in flex container */
+}
+
+
+#global-controls {
+    margin-bottom: 0;
+    padding: 15px;
+    background-color: #3a3a3a;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+     border: 1px solid #555;
+}
+
+ #global-controls label {
+     font-size: 1em;
+     font-weight: bold;
+     color: #b0b0b0;
+ }
+
+ #global-controls input[type="checkbox"] {
+     margin-left: 5px;
+     cursor: pointer;
+ }
+
+ #api-key-container {
+     width: 100%;
+     text-align: left;
+     margin-bottom: 0;
+ }
+
+ #api-key-container label {
+     display: block;
+     margin-bottom: 5px;
+     font-weight: bold;
+     color: #b0b0b0;
+ }
+
+ #api-key-container input[type="text"] {
+     width: 100%;
+     padding: 10px;
+     border: 1px solid #555;
+     border-radius: 4px;
+     background-color: #444;
+     color: #f0f0f0;
+     box-sizing: border-box;
+     font-size: 1em;
+ }
+
+ #api-key-container label a {
+     color: #f39c12;
+     text-decoration: none;
+     font-weight: normal;
+     transition: color 0.2s ease;
+ }
+
+ #api-key-container label a:hover {
+     color: #e67e22;
+     text-decoration: underline;
+ }
+
+#button-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+     width: 100%;
+}
+
+button {
+    background-color: #f39c12;
+    color: #1a1a1a;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+     flex-grow: 1;
+     min-width: 150px;
+}
+
+button:hover:not(:disabled) {
+    background-color: #e67e22;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+button:active:not(:disabled) {
+    background-color: #d35400;
+     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+button:disabled {
+    background-color: #444;
+    cursor: not-allowed;
+    box-shadow: none;
+     color: #b0b0b0;
+}
+
+.file-input-container {
+    margin-bottom: 15px;
+    text-align: left;
+    width: 100%;
+}
+
+.file-input-container label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #b0b0b0;
+}
+
+input[type="file"]::file-selector-button {
+    background-color: #555;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-right: 15px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+     font-weight: normal;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: #666;
+}
+
+#global-status {
+    margin-top: 0;
+    font-size: 1.1em;
+    color: #b0b0b0;
+    min-height: 1.5em;
+}
+
+#task-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    width: 100%;
+}
+
+.task-container, .kappa-items-container {
+    background-color: #3a3a3a;
+    padding: 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    outline: none;
+    border: 1px solid transparent;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+     color: #e0e0e0;
+}
+
+.task-container.focused, .kappa-items-container.focused {
+    border-color: #f39c12;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.task-container.drag-over, .kappa-items-container.drag-over {
+    border-color: #f39c12; /* Highlight border */
+    background-color: #454545; /* Slightly lighter background */
+    box-shadow: 0 0 10px rgba(243, 156, 18, 0.5); /* Optional glow */
+}
+
+.task-buttons, .kappa-buttons {
+    display: flex; /* Use flexbox */
+    flex-direction: row; /* Arrange items in a row */
+    gap: 10px; /* Add space between buttons */
+    justify-content: center; /* Center buttons horizontally */
+    width: 100%; /* Take up full width */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+}
+
+.task-buttons button, .kappa-buttons button {
+     flex-grow: 1; /* Allow buttons to grow and fill available space */
+     flex-basis: 0; /* Distribute space equally */
+     min-width: 120px; /* Ensure a minimum width for buttons */
+}
+
+
+.canvas-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+     justify-content: center;
+}
+
+.task-canvas-wrapper {
+    flex-direction: column;
+    align-items: center;
+}
+
+.task-canvas, .kappa-canvas {
+    border: 1px solid #555;
+    background-color: #444;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+
+.task-status, .kappa-status {
+    font-size: 0.9em;
+    color: #b0b0b0;
+    min-height: 1.2em;
+}
+
+.task-output, .kappa-output {
+    width: 100%;
+    height: 150px;
+    background-color: #444;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 10px;
+    font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+    resize: vertical;
+    box-sizing: border-box;
+     font-size: 0.9em;
+}
+
+ .collapsible-header {
+     background-color: #555;
+     color: #f0f0f0;
+     cursor: pointer;
+     padding: 10px;
+     border-radius: 4px;
+     margin-top: 5px;
+     transition: background-color 0.2s ease;
+     font-weight: bold;
+     text-align: center;
+ }
+
+ .collapsible-header:hover {
+     background-color: #666;
+ }
+
+ .collapsible-content {
+     display: none;
+     padding: 10px 0;
+ }
+ .collapsible-content.active {
+    display: block; 
+ }
+
+
+ .wiki-links ul, .required-tasks ul, .matched-items-list ul {
+     list-style: none;
+     padding: 0;
+     margin: 0;
+ }
+ .required-tasks ul {
+    list-style: disc inside;
+    padding-left: 15px;
+ }
+
+
+ .wiki-links li, .required-tasks li, .matched-items-list li {
+     margin-bottom: 5px;
+ }
+
+ .wiki-links a, .required-tasks a, .matched-items-list a {
+     color: #f39c12;
+     text-decoration: none;
+     transition: color 0.2s ease;
+ }
+
+ .wiki-links a:hover, .required-tasks a:hover, .matched-items-list a:hover {
+     color: #e67e22;
+     text-decoration: underline;
+ }
+
+.container > h2:last-child { /* Footer credits */
+    font-size: 0.9em;
+    text-align: right;
+    margin-top: 20px;
+    margin-bottom: 0;
+    color: #b0b0b0;
+}
+
+.container > h2:last-child a {
+    color: #f39c12;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.container > h2:last-child a:hover {
+    color: #e67e22;
+    text-decoration: underline;
+}
+
+
+@media (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
+    .container {
+        padding: 20px;
+    }
+    h1 {
+        font-size: 2em;
+    }
+     h2 {
+        font-size: 1.4em;
+     }
+     .container > h2:last-child {
+         font-size: 0.8em;
+         text-align: center;
+     }
+     h3 {
+        font-size: 1.1em;
+     }
+     button {
+        padding: 10px 15px;
+     }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+    .container {
+        padding: 15px;
+    }
+    h1 {
+        font-size: 1.5em;
+    }
+     h2 {
+        font-size: 1.1em;
+     }
+      .container > h2:last-child {
+         font-size: 0.7em;
+         text-align: center;
+     }
+     button {
+        width: 100%;
+        padding: 10px 15px;
+     }
+     input[type="file"]::file-selector-button {
+         margin-right: 10px;
+         padding: 6px 10px;
+     }
+}
+.spinner-overlay { /* Common styles for spinner overlays */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Ensure it's on top */
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+}
+
+#kappa-spinner-overlay { /* Specific to Kappa section */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 6px; /* Match container */
+}
+
+#global-spinner-overlay { /* For full viewport overlay */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.65); /* Slightly darker for global */
+    z-index: 2000; /* Higher than kappa spinner or other elements */
+}
+
+
+.spinner {
+    border: 6px solid #f3f3f3; /* Light grey */
+    border-top: 6px solid #f39c12; /* Orange */
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.kappa-items-container {
+    position: relative; /* For kappa-spinner-overlay positioning */
+}
+
+.modal {
+    position: fixed; /* Stay in place */
+    z-index: 1500; /* Sit on top - higher than global spinner */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+    display: flex; /* Used to center modal-content */
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: #2c2c2c;
+    margin: auto;
+    padding: 25px;
+    border: 1px solid #666;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 700px; /* Max width */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    position: relative;
+    max-height: 85vh; /* Max height */
+    overflow-y: auto; /* Scroll for content */
+}
+
+.modal-content h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #f0f0f0;
+}
+
+.close-button {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #f39c12;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.example-image-container {
+    margin-bottom: 25px;
+    text-align: center;
+}
+.example-image-container:last-child {
+    margin-bottom: 0;
+}
+
+.example-image-container h3 {
+    text-align: center;
+    color: #e0e0e0;
+    margin-bottom: 10px;
+}
+
+.example-image-container img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #444;
+}
+.example-image-container p {
+    font-size: 0.9em;
+    color: #b0b0b0;
+    margin-top: 8px;
+}

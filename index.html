@@ -4,419 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OCR task helper</title>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        .container {
-            background-color: #2c2c2c;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-            text-align: center;
-            width: 100%;
-            max-width: 1200px;
-            margin-bottom: 20px;
-            border: 1px solid #555;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        h1, h2, h3 {
-            color: #f0f0f0;
-            margin-top: 0;
-            margin-bottom: 15px;
-            text-shadow: none;
-        }
-
-        h1 {
-            font-size: 2.5em;
-            font-weight: 700;
-        }
-
-         h2 {
-            font-size: 1.6em;
-            font-weight: 600;
-            color: #b0b0b0;
-         }
-
-         h3 {
-            font-size: 1.3em;
-            font-weight: 600;
-            margin-bottom: 10px;
-            text-align: left;
-             color: #e0e0e0;
-         }
-
-        #global-controls {
-            margin-bottom: 0;
-            padding: 15px;
-            background-color: #3a3a3a;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-             border: 1px solid #555;
-        }
-
-         #global-controls label {
-             font-size: 1em;
-             font-weight: bold;
-             color: #b0b0b0;
-         }
-
-         #global-controls input[type="checkbox"] {
-             margin-left: 5px;
-             cursor: pointer;
-         }
-
-         #api-key-container {
-             width: 100%;
-             text-align: left;
-             margin-bottom: 0;
-         }
-
-         #api-key-container label {
-             display: block;
-             margin-bottom: 5px;
-             font-weight: bold;
-             color: #b0b0b0;
-         }
-
-         #api-key-container input[type="text"] {
-             width: 100%;
-             padding: 10px;
-             border: 1px solid #555;
-             border-radius: 4px;
-             background-color: #444;
-             color: #f0f0f0;
-             box-sizing: border-box;
-             font-size: 1em;
-         }
-
-         #api-key-container label a {
-             color: #f39c12;
-             text-decoration: none;
-             font-weight: normal;
-             transition: color 0.2s ease;
-         }
-
-         #api-key-container label a:hover {
-             color: #e67e22;
-             text-decoration: underline;
-         }
-
-        #button-container {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-             width: 100%;
-        }
-
-        button {
-            background-color: #f39c12;
-            color: #1a1a1a;
-            border: none;
-            border-radius: 5px;
-            padding: 10px 20px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-             flex-grow: 1;
-             min-width: 150px;
-        }
-
-        button:hover:not(:disabled) {
-            background-color: #e67e22;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        button:active:not(:disabled) {
-            background-color: #d35400;
-             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        button:disabled {
-            background-color: #444;
-            cursor: not-allowed;
-            box-shadow: none;
-             color: #b0b0b0;
-        }
-
-        .file-input-container {
-            margin-bottom: 15px;
-            text-align: left;
-            width: 100%;
-        }
-
-        .file-input-container label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #b0b0b0;
-        }
-
-        input[type="file"]::file-selector-button {
-            background-color: #555;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 12px;
-            margin-right: 15px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-             font-weight: normal;
-        }
-
-        input[type="file"]::file-selector-button:hover {
-            background-color: #666;
-        }
-
-        #global-status {
-            margin-top: 0;
-            font-size: 1.1em;
-            color: #b0b0b0;
-            min-height: 1.5em;
-        }
-
-        #task-images-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            width: 100%;
-        }
-
-        .task-container, .kappa-items-container {
-            background-color: #3a3a3a;
-            padding: 20px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            text-align: left;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            outline: none;
-            border: 1px solid transparent;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-             color: #e0e0e0;
-        }
-
-        .task-container.focused, .kappa-items-container.focused {
-            border-color: #f39c12;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        .task-buttons, .kappa-buttons {
-            display: flex; /* Use flexbox */
-            flex-direction: row; /* Arrange items in a row */
-            gap: 10px; /* Add space between buttons */
-            justify-content: center; /* Center buttons horizontally */
-            width: 100%; /* Take up full width */
-            flex-wrap: wrap; /* Allow wrapping on smaller screens */
-        }
-
-        .task-buttons button, .kappa-buttons button {
-             flex-grow: 1; /* Allow buttons to grow and fill available space */
-             flex-basis: 0; /* Distribute space equally */
-             min-width: 120px; /* Ensure a minimum width for buttons */
-        }
-
-
-        .canvas-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-             justify-content: center;
-        }
-
-        .task-canvas, .kappa-canvas {
-            border: 1px solid #555;
-            background-color: #444;
-            max-width: 100%;
-            height: auto;
-            border-radius: 4px;
-        }
-
-        .task-status, .kappa-status {
-            font-size: 0.9em;
-            color: #b0b0b0;
-            min-height: 1.2em;
-        }
-
-        .task-output, .kappa-output {
-            width: 100%;
-            height: 150px;
-            background-color: #444;
-            color: #f0f0f0;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 10px;
-            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-            resize: vertical;
-            box-sizing: border-box;
-             font-size: 0.9em;
-        }
-
-         .collapsible-header {
-             background-color: #555;
-             color: #f0f0f0;
-             cursor: pointer;
-             padding: 10px;
-             border-radius: 4px;
-             margin-top: 5px;
-             transition: background-color 0.2s ease;
-             font-weight: bold;
-             text-align: center;
-         }
-
-         .collapsible-header:hover {
-             background-color: #666;
-         }
-
-         .collapsible-header.active + .collapsible-content {
-             display: block;
-         }
-
-         .collapsible-content {
-             display: none;
-             padding: 10px 0;
-         }
-
-         .wiki-links ul {
-             list-style: none;
-             padding: 0;
-             margin: 0;
-         }
-
-         .wiki-links li {
-             margin-bottom: 5px;
-         }
-
-         .wiki-links a {
-             color: #f39c12;
-             text-decoration: none;
-             transition: color 0.2s ease;
-         }
-
-         .wiki-links a:hover {
-             color: #e67e22;
-             text-decoration: underline;
-         }
-
-         .required-tasks ul {
-             list-style: disc inside;
-             padding-left: 15px;
-             margin: 0;
-         }
-
-         .required-tasks li {
-             margin-bottom: 3px;
-         }
-
-        .container > h2:last-child {
-            font-size: 0.9em;
-            text-align: right;
-            margin-top: 20px;
-            margin-bottom: 0;
-            color: #b0b0b0;
-        }
-
-        .container > h2:last-child a {
-            color: #f39c12;
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
-        .container > h2:last-child a:hover {
-            color: #e67e22;
-            text-decoration: underline;
-        }
-
-
-        @media (max-width: 768px) {
-            body {
-                padding: 15px;
-            }
-            .container {
-                padding: 20px;
-            }
-            h1 {
-                font-size: 2em;
-            }
-             h2 {
-                font-size: 1.4em;
-             }
-             .container > h2:last-child {
-                 font-size: 0.8em;
-                 text-align: center;
-             }
-             h3 {
-                font-size: 1.1em;
-             }
-             button {
-                padding: 10px 15px;
-             }
-        }
-
-        @media (max-width: 480px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                padding: 15px;
-            }
-            h1 {
-                font-size: 1.5em;
-            }
-             h2 {
-                font-size: 1.1em;
-             }
-              .container > h2:last-child {
-                 font-size: 0.7em;
-                 text-align: center;
-             }
-             button {
-                width: 100%;
-                padding: 10px 15px;
-             }
-             input[type="file"]::file-selector-button {
-                 margin-right: 10px;
-                 padding: 6px 10px;
-             }
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://docs.opencv.org/4.x/opencv.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
 </head>
 <body>
+    <div class="spinner-overlay" id="global-spinner-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
 
     <div class="container">
         <h1>Tarkov Tracker OCR catchup</h1>
-         <p class="paste-note">Tip: You can paste images directly from your clipboard!</p>
+         <p class="paste-note">Tip: You can paste images directly from your clipboard or drag & drop onto sections!</p>
+
+        <!-- NEW: Upload Information Section -->
+        <div id="upload-info-section">
+            <h2>What to Upload?</h2>
+            <p>
+                For <strong>Trader Task sections</strong> (Prapor, Therapist, etc.): Upload a screenshot of that trader's task list page from in-game.
+                The tool will try to identify completed tasks.
+            </p>
+            <p>
+                For the <strong>Kappa Items section</strong>: Upload a screenshot of the Kappa items in your inventory/stash.
+            </p>
+            <button id="show-examples-button">Show Examples</button>
+        </div>
 
         <div id="global-controls">
              <div id="api-key-container">
                  <label for="api-key-input">Tarkov Tracker Token (<a href="https://tarkovtracker.io/settings" target="_blank" rel="noopener noreferrer">Find your token here</a>):</label>
                  <input type="text" id="api-key-input" placeholder="Enter API Key">
              </div>
-
              <div id="button-container">
                  <button id="process-all-tasks" disabled>Process All Uploaded Images</button>
                  <button id="post-completed-tasks-button" disabled>Post Completed Tasks to TarkovTracker</button>
@@ -424,13 +44,14 @@
         </div>
 
         <div id="global-status">Loading dependencies...</div>
-
         <div id="task-images-grid"></div>
-
-        <div class="kappa-items-container" id="kappa-items-section">
+        <div class="kappa-items-container" id="kappa-items-section" tabindex="0">
             <h3>Kappa Items</h3>
+            <div class="spinner-overlay" id="kappa-spinner-overlay" style="display: none;">
+                <div class="spinner"></div>
+            </div>
             <div class="file-input-container">
-                <label for="upload-kappa-items">Upload Kappa Items Image:</label>
+                <label for="upload-kappa-items">Upload Kappa Items Image (or Drag & Drop here):</label>
                 <input type="file" id="upload-kappa-items" accept="image/*">
             </div>
              <div class="canvas-container">
@@ -442,7 +63,7 @@
                 <button id="process-kappa-items" disabled>Process Kappa Image</button>
                 <button id="clear-kappa-items" disabled>Clear Kappa Image</button>
             </div>
-            <div class="collapsible-header" data-target="output-kappa" style="display: none;">OCR Output</div>
+            <div class="collapsible-header" data-target="output-kappa" style="display: none;">Processing Log</div>
             <div class="collapsible-content" id="output-kappa" style="display: none;">
                  <textarea class="kappa-output" readonly></textarea>
             </div>
@@ -451,11 +72,27 @@
                  <div class="matched-items-list"></div>
             </div>
         </div>
-
-
-        <h2>using <a href="https://opencv.org/">opencv</a> + <a href="https://tesseract.projectnaptha.com/">Tesseract.js</a></h2>
+        <h2>using <a href="https://opencv.org/">opencv</a> + <a href="https://tesseract.projectnaptha.com/">Tesseract.js</a> + <a href="https://fusejs.io/">Fuse.js</a></h2>
     </div>
 
-    <script src="script.js"></script>
+    <!-- NEW: Modal for Examples -->
+    <div id="examples-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button">×</span>
+            <h2>Example Screenshots</h2>
+            <div class="example-image-container">
+                <h3>Trader Task List (e.g., Prapor)</h3>
+                <img src="assets/example_prapor_tasks.png" alt="Example Prapor Task List Screenshot">
+                <p>Ensure the task names are clearly visible.</p>
+            </div>
+            <div class="example-image-container">
+                <h3>Kappa Items (Collector Quest / Inventory)</h3>
+                <img src="assets/example_kappa_inventory.png" alt="Example Kappa Items Screenshot">
+                <p>Show the items needed for the "Collector" quest.</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
