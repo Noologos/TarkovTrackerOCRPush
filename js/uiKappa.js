@@ -27,7 +27,7 @@ function drawSmartRect(ctx, x, y, width, height, rotationDegrees = 0, color = 'r
     ctx.lineWidth = lineWidth;
     ctx.setLineDash([]);
 
-    if (rotationDegrees === 0 || rotationDegrees % 360 === 0) { // Check for no effective rotation
+    if (rotationDegrees === 0 || rotationDegrees % 360 === 0) { 
         ctx.strokeRect(x, y, width, height);
     } else {
         const centerX = x + width / 2;

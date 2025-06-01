@@ -2,7 +2,7 @@
 
 // Global Controls and Status
 export const globalStatusDiv = document.getElementById('global-status');
-export const container = document.querySelector('.container'); // Main app container
+export const container = document.querySelector('.container'); 
 export const taskImagesGrid = document.getElementById('task-images-grid');
 export const processAllButton = document.getElementById('process-all-tasks');
 export const apiKeyInput = document.getElementById('api-key-input');
@@ -11,10 +11,8 @@ export const postCompletedTasksButton = document.getElementById('post-completed-
 // Kappa Section Elements - these are relatively static once the page loads
 export const kappaItemsSection = document.getElementById('kappa-items-section');
 export const kappaFileInput = document.getElementById('upload-kappa-items');
-export const kappaSpinner = document.getElementById('kappa-spinner-overlay'); // Spinner overlay
+export const kappaSpinner = document.getElementById('kappa-spinner-overlay'); 
 
-// It's often better to query for these specific kappa elements when needed,
-// or within a KappaUI module, but for simplicity with the current structure:
 export const kappaDomElements = kappaItemsSection ? {
     fileInput: kappaFileInput,
     originalCanvas: kappaItemsSection.querySelector('.original-canvas'),

@@ -41,7 +41,7 @@ export async function fetchTarkovData() {
     const apiKey = DOM.apiKeyInput?.value.trim() ?? '';
     const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
     if (apiKey) {
-        headers['x-api-key'] = apiKey; // Add API key header if present
+        headers['x-api-key'] = apiKey; 
     }
 
     try {

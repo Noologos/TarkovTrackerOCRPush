@@ -1,3 +1,4 @@
+// js/kappa-worker.js
 let cv = null;
 let cvInitializationPromise = null;
 
@@ -75,8 +76,8 @@ function performNMS(candidateMatchesInput, config) {
             let effectiveIouThreshold = iouThreshold;
             let effectiveContainmentThreshold = containmentThreshold;
 
-            if (iouThresholdP3Lenient !== undefined && 
-                containmentThresholdP3Lenient !== undefined && 
+            if (iouThresholdP3Lenient !== undefined &&
+                containmentThresholdP3Lenient !== undefined &&
                 potentialMatch.pass === 3) {
                 effectiveIouThreshold = iouThresholdP3Lenient;
                 effectiveContainmentThreshold = containmentThresholdP3Lenient;
@@ -84,7 +85,7 @@ function performNMS(candidateMatchesInput, config) {
 
             const iou = calculateIoU(potentialMatch.location, keptItem.location);
             const contained = checkContainment(potentialMatch.location, keptItem.location, effectiveContainmentThreshold);
-            
+
             if (iou > effectiveIouThreshold || contained) {
                 isSuppressedByDifferentItem = true;
                 suppressedItemIdsDueToOverlap.add(potentialMatch.item.id);
@@ -154,23 +155,23 @@ function prepareCroppedTemplates(cvInstance, baseGrayMat, itemName, passNum, is1
         }
     } else {
         topCropPx = Math.floor(assetHeight * PERCENT_CROP_TOP_GENERAL);
-        bottomCropPx = 0; 
+        bottomCropPx = 0;
 
         if (is1x1Item) {
             leftCropPx = FIXED_CROP_1x1_HORIZONTAL;
             rightCropPx = FIXED_CROP_1x1_HORIZONTAL;
-            if (leftCropPx + rightCropPx >= assetWidth) { 
+            if (leftCropPx + rightCropPx >= assetWidth) {
                 leftCropPx = Math.floor(assetWidth * PERCENT_CROP_HORIZONTAL_GENERAL);
                 rightCropPx = Math.floor(assetWidth * PERCENT_CROP_HORIZONTAL_GENERAL);
-                if (leftCropPx + rightCropPx >= assetWidth) { 
+                if (leftCropPx + rightCropPx >= assetWidth) {
                     leftCropPx = Math.max(0, Math.floor(assetWidth * MINIMAL_FALLBACK_CROP_PERCENT));
                     rightCropPx = Math.max(0, Math.floor(assetWidth * MINIMAL_FALLBACK_CROP_PERCENT));
                 }
             }
-        } else { 
+        } else {
             leftCropPx = Math.floor(assetWidth * PERCENT_CROP_HORIZONTAL_GENERAL);
             rightCropPx = Math.floor(assetWidth * PERCENT_CROP_HORIZONTAL_GENERAL);
-            if (leftCropPx + rightCropPx >= assetWidth) { 
+            if (leftCropPx + rightCropPx >= assetWidth) {
                 leftCropPx = Math.max(0, Math.floor(assetWidth * MINIMAL_FALLBACK_CROP_PERCENT));
                 rightCropPx = Math.max(0, Math.floor(assetWidth * MINIMAL_FALLBACK_CROP_PERCENT));
             }
@@ -187,7 +188,7 @@ function prepareCroppedTemplates(cvInstance, baseGrayMat, itemName, passNum, is1
 
     if (cropWidth > 0 && cropHeight > 0) {
         const cropRect = new cvInstance.Rect(cropX, cropY, cropWidth, cropHeight);
-        results.baseCroppedMat = baseGrayMat.roi(cropRect); 
+        results.baseCroppedMat = baseGrayMat.roi(cropRect);
 
         if (results.baseCroppedMat && !results.baseCroppedMat.empty()) {
             results.rotatedCroppedMat = new cvInstance.Mat();
@@ -198,7 +199,7 @@ function prepareCroppedTemplates(cvInstance, baseGrayMat, itemName, passNum, is1
                 deleteCvMats(results.rotatedCroppedMat); results.rotatedCroppedMat = null;
             }
         } else {
-            deleteCvMats(results.baseCroppedMat); results.baseCroppedMat = null; 
+            deleteCvMats(results.baseCroppedMat); results.baseCroppedMat = null;
         }
     } else {
         self.postMessage({ type: 'debug', message: `Worker: Invalid crop size for ${itemName} (Pass ${passNum}, W:${cropWidth}, H:${cropHeight}). Skipping.` });
@@ -290,7 +291,7 @@ function processSingleItem(context) {
     }
 
     let templFullRGBA = null, templFullGrayUncropped = null;
-    const itemSpecificMatsToClean = []; 
+    const itemSpecificMatsToClean = [];
 
     try {
         templFullRGBA = cvInst.matFromImageData(iconImgData);
@@ -301,17 +302,17 @@ function processSingleItem(context) {
 
         for (const config of templateConfigs) {
             let templateToMatch = null;
-            let prepResults = null; 
+            let prepResults = null;
 
             if (config.type === "cropped") {
                 prepResults = prepareCroppedTemplates(cvInst, templFullGrayUncropped, item.name, passNum, item.is1x1Item);
-                if (prepResults.baseCroppedMat) itemSpecificMatsToClean.push(prepResults.baseCroppedMat); 
+                if (prepResults.baseCroppedMat) itemSpecificMatsToClean.push(prepResults.baseCroppedMat);
                 itemSpecificMatsToClean.push(...prepResults.newMatsCreated);
                 templateToMatch = config.rotation === 0 ? prepResults.baseCroppedMat : prepResults.rotatedCroppedMat;
             } else if (config.type === "uncropped") {
                 if (config.rotation === 0) {
                     templateToMatch = templFullGrayUncropped;
-                } else { 
+                } else {
                     prepResults = prepareUncroppedRotatedTemplate(cvInst, templFullGrayUncropped);
                     itemSpecificMatsToClean.push(...prepResults.newMatsCreated);
                     templateToMatch = prepResults.rotatedUncroppedMat;
@@ -322,7 +323,7 @@ function processSingleItem(context) {
                 const matchRunResult = executeTemplateMatching(cvInst, srcGray, item, templateToMatch, config.rotation, config.type, scales, passNum, workerConfig, isPass1Mode);
                 aggregatedResults.foundMatches.push(...matchRunResult.foundMatches);
 
-                if (isPass1Mode) { 
+                if (isPass1Mode) {
                     if (matchRunResult.bestConfidenceThisTemplate > aggregatedResults.bestConfidenceThisTemplate) {
                         aggregatedResults.bestConfidenceThisTemplate = matchRunResult.bestConfidenceThisTemplate;
                         aggregatedResults.scaleOfBestConfidenceThisTemplate = matchRunResult.scaleOfBestConfidenceThisTemplate;
@@ -334,7 +335,7 @@ function processSingleItem(context) {
                            aggregatedResults.bestConfidenceThisTemplate = matchRunResult.bestConfidenceThisTemplate;
                            aggregatedResults.scaleOfBestConfidenceThisTemplate = matchRunResult.scaleOfBestConfidenceThisTemplate;
                         }
-                        break; 
+                        break;
                     }
                 }
             }
@@ -415,7 +416,7 @@ self.addEventListener('message', async (event) => {
         }
         if (itemResultP1.earlyExitTriggered) {
             if (itemResultP1.scaleOfEarlyExit) bestOverallScale = itemResultP1.scaleOfEarlyExit;
-            pass1HighestOverallConfidence = itemResultP1.bestConfidenceThisTemplate; 
+            pass1HighestOverallConfidence = itemResultP1.bestConfidenceThisTemplate;
             pass1EarlyExitTriggered = true;
         }
     }
@@ -424,9 +425,9 @@ self.addEventListener('message', async (event) => {
     if (!pass1EarlyExitTriggered && pass1HighestOverallConfidence < workerConfig.KAPPA_PASS1_SCALE_CONFIDENCE_THRESHOLD) {
         bestOverallScale = 1.0;
     }
-    
+
     const targetedScales = [bestOverallScale * 0.98, bestOverallScale, bestOverallScale * 1.02].filter(s => s > 0.1 && s < 3.0);
-    if (targetedScales.length === 0) { 
+    if (targetedScales.length === 0) {
         targetedScales.push(1.0);
     }
 
@@ -438,11 +439,11 @@ self.addEventListener('message', async (event) => {
         const itemResultP2 = processSingleItem({ cvInst: cv, srcGray, item, iconImageDataMap, scales: targetedScales, passNum: 2, workerConfig, isPass1Mode: false, templateConfigs: p2TemplateConfigs });
         allPotentialMatchesPass2.push(...itemResultP2.foundMatches);
     }
-    
-    let p1p2CandidatesForNMS = [];
-    const p1p2CandidateItemIds = new Set(); 
 
-    const bestP2ForItem = getBestMatches(allPotentialMatchesPass2); 
+    let p1p2CandidatesForNMS = [];
+    const p1p2CandidateItemIds = new Set();
+
+    const bestP2ForItem = getBestMatches(allPotentialMatchesPass2);
     for (const match of bestP2ForItem) {
         p1p2CandidatesForNMS.push(match);
         p1p2CandidateItemIds.add(match.item.id);
@@ -453,21 +454,21 @@ self.addEventListener('message', async (event) => {
     for (const match of bestP1ForRemainingItems) {
         p1p2CandidatesForNMS.push(match);
     }
-    
+
     const initialNMSConfig = {
         iouThreshold: workerConfig.KAPPA_NMS_IOU_THRESHOLD,
         containmentThreshold: workerConfig.KAPPA_NMS_CONTAINMENT_THRESHOLD,
         nmsContextLogPrefix: "Initial P1/P2 NMS"
     };
     const initialNMSResult = performNMS(p1p2CandidatesForNMS, initialNMSConfig);
-    
+
     const protectedP1P2Items = [...initialNMSResult.kept_items];
     const protectedP1P2ItemIds = new Set(initialNMSResult.kept_item_ids);
-    
+
     const itemsToRescanP3 = kappaRequiredItemsData.filter(item => item.id && !protectedP1P2ItemIds.has(item.id));
     let allPotentialMatchesPass3 = [];
     if (itemsToRescanP3.length > 0) {
-        const p3TemplateConfigs = [ 
+        const p3TemplateConfigs = [
             { type: 'cropped', rotation: 0 }, { type: 'cropped', rotation: 90 },
             { type: 'uncropped', rotation: 0 }, { type: 'uncropped', rotation: 90 }
         ];
@@ -481,22 +482,22 @@ self.addEventListener('message', async (event) => {
 
     const p3CandidatesRaw = allPotentialMatchesPass3.filter(m => !protectedP1P2ItemIds.has(m.item.id));
     const bestP3CandidatesAlone = getBestMatches(p3CandidatesRaw);
-    
+
     const nmsAmongP3Config = {
-        iouThreshold: workerConfig.KAPPA_NMS_IOU_THRESHOLD_P3_LENIENT, 
-        containmentThreshold: workerConfig.KAPPA_NMS_CONTAINMENT_THRESHOLD_P3_LENIENT, 
+        iouThreshold: workerConfig.KAPPA_NMS_IOU_THRESHOLD_P3_LENIENT,
+        containmentThreshold: workerConfig.KAPPA_NMS_CONTAINMENT_THRESHOLD_P3_LENIENT,
         nmsContextLogPrefix: "P3-vs-P3 NMS",
         iouThresholdP3Lenient: workerConfig.KAPPA_NMS_IOU_THRESHOLD_P3_LENIENT,
         containmentThresholdP3Lenient: workerConfig.KAPPA_NMS_CONTAINMENT_THRESHOLD_P3_LENIENT
     };
     const p3NMSResult = performNMS(bestP3CandidatesAlone, nmsAmongP3Config);
     const nonOverlappingP3Items = p3NMSResult.kept_items;
-    
+
     let finalMergedItems = [...protectedP1P2Items];
     const finalMergedItemIds = new Set(protectedP1P2ItemIds);
 
     for (const p3Item of nonOverlappingP3Items) {
-        if (finalMergedItemIds.has(p3Item.item.id)) continue; 
+        if (finalMergedItemIds.has(p3Item.item.id)) continue;
 
         let canAddP3Item = true;
         for (const protectedItem of protectedP1P2Items) {
@@ -514,13 +515,13 @@ self.addEventListener('message', async (event) => {
             finalMergedItemIds.add(p3Item.item.id);
         }
     }
-    
+
     finalMergedItems.sort((a,b) => b.confidence - a.confidence);
 
     const finalFoundItems = finalMergedItems;
-    const finalFoundItemIds = new Set(finalFoundItems.map(item => item.item.id)); 
+    const finalFoundItemIds = new Set(finalFoundItems.map(item => item.item.id));
 
-    
+
     let missingItems = kappaRequiredItemsData
         .filter(item => item.id && !finalFoundItemIds.has(item.id))
         .map(item => ({ id: item.id, name: item.name, shortName: item.shortName, wikiLink: item.wikiLink, reason: "Not detected or suppressed" }));

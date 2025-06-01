@@ -4,6 +4,7 @@ import * as Config from './config.js';
 import * as DOM from './dom.js';
 import { reportKappaStatus, reportKappaOutput, showKappaSpinner, drawKappaImageOnCanvas, displayMatchedKappaItems } from './uiKappa.js';
 import { updateButtonStates } from './main.js';
+// Import specific functions needed from ui.js
 import { updateCollapsibleVisibility, showGlobalSpinner, setButtonEnabled } from './ui.js';
 
 
@@ -20,8 +21,8 @@ export async function processKappaImage() {
     const wasGlobalSpinnerActive = DOM.globalSpinnerOverlay?.style.display === 'flex';
 
     showKappaSpinner(true); 
-    if (!wasGlobalSpinnerActive) {
-        setButtonEnabled(DOM.processAllButton, false);
+    if (!wasGlobalSpinnerActive) { 
+        setButtonEnabled(DOM.processAllButton, false); 
     }
     updateButtonStates(); 
 
@@ -36,7 +37,7 @@ export async function processKappaImage() {
     if (!mainCtx) {
         reportKappaStatus("Error: Could not get 2D context for main image.");
         showKappaSpinner(false);
-        if (wasGlobalSpinnerActive) showGlobalSpinner(false); // Use imported showGlobalSpinner
+        if (wasGlobalSpinnerActive) showGlobalSpinner(false); 
         updateButtonStates(); return;
     }
     mainCtx.drawImage(State.kappaState.image, 0, 0);
@@ -46,7 +47,7 @@ export async function processKappaImage() {
         reportKappaStatus(`Error getting image data: ${e.message}.`);
         console.error("Error in getImageData for main Kappa image:", e);
         showKappaSpinner(false);
-        if (wasGlobalSpinnerActive) showGlobalSpinner(false); // Use imported showGlobalSpinner
+        if (wasGlobalSpinnerActive) showGlobalSpinner(false); 
         updateButtonStates(); return;
     }
 
@@ -108,14 +109,14 @@ export async function processKappaImage() {
                 reportKappaStatus('Kappa item detection complete.');
                 updateCollapsibleVisibility(DOM.kappaDomElements.outputHeader, DOM.kappaDomElements.outputContent, DOM.kappaDomElements.outputArea?.value?.trim().length > 0, Config.IS_DEV_MODE );
                 showKappaSpinner(false);
-                if (wasGlobalSpinnerActive) showGlobalSpinner(false); // Use imported showGlobalSpinner
+                if (wasGlobalSpinnerActive) showGlobalSpinner(false); 
                 workerInstance.terminate(); State.setKappaWorker(null); updateButtonStates();
                 break;
             case 'error':
                 reportKappaStatus(`Worker Error: ${message}`); reportKappaOutput(`WORKER ERROR: ${message}\n`, true); console.error(`Worker Error: ${message}`);
                 updateCollapsibleVisibility(DOM.kappaDomElements.outputHeader, DOM.kappaDomElements.outputContent, true, Config.IS_DEV_MODE);
                 showKappaSpinner(false);
-                if (wasGlobalSpinnerActive) showGlobalSpinner(false); // Use imported showGlobalSpinner
+                if (wasGlobalSpinnerActive) showGlobalSpinner(false); 
                 if (State.kappaWorker) { workerInstance.terminate(); State.setKappaWorker(null); } updateButtonStates();
                 break;
             default: console.warn("Received unknown message type from Kappa worker:", event.data);
@@ -126,7 +127,7 @@ export async function processKappaImage() {
         reportKappaStatus(`Critical Worker Error: ${error.message}.`); reportKappaOutput(`CRITICAL WORKER ERROR: ${error.message}\nDetails in console.\n`, true);
         updateCollapsibleVisibility(DOM.kappaDomElements.outputHeader, DOM.kappaDomElements.outputContent, true, Config.IS_DEV_MODE);
         showKappaSpinner(false);
-        if (wasGlobalSpinnerActive) showGlobalSpinner(false); // Use imported showGlobalSpinner
+        if (wasGlobalSpinnerActive) showGlobalSpinner(false); 
         if (State.kappaWorker) { workerInstance.terminate(); State.setKappaWorker(null); } updateButtonStates();
     };
 
@@ -147,7 +148,7 @@ export async function processKappaImage() {
         reportKappaStatus("Error: Could not determine OpenCV script path for worker.");
         console.error("Kappa Processor Error: cvPath is undefined or null.");
         showKappaSpinner(false);
-        if (wasGlobalSpinnerActive) showGlobalSpinner(false); // Use imported showGlobalSpinner
+        if (wasGlobalSpinnerActive) showGlobalSpinner(false); 
         updateButtonStates();
         if (State.kappaWorker) { State.kappaWorker.terminate(); State.setKappaWorker(null); }
         return;

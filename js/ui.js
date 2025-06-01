@@ -106,7 +106,6 @@ export function clearTask(taskName) {
     updateButtonStates();
 }
 
-// ADD export HERE
 export function handleFileDrop(event, targetFileInput, statusReportFn) {
     event.preventDefault();
     event.stopPropagation();
@@ -121,10 +120,10 @@ export function handleFileDrop(event, targetFileInput, statusReportFn) {
             targetFileInput.files = dataTransfer.files;
             targetFileInput.dispatchEvent(new Event('change', { bubbles: true }));
             if (statusReportFn) statusReportFn('Dropped image successfully.');
-            else reportGlobalStatus('Dropped image successfully.'); // Use the exported reportGlobalStatus
+            else reportGlobalStatus('Dropped image successfully.');
         } else {
             if (statusReportFn) statusReportFn('Dropped file is not an image.');
-            else reportGlobalStatus('Dropped file is not an image.'); // Use the exported reportGlobalStatus
+            else reportGlobalStatus('Dropped file is not an image.');
         }
     }
 }

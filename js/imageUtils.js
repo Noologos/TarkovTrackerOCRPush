@@ -56,7 +56,7 @@ export function drawRect(ctx, rect, color, lineWidth) {
      if (!ctx || !rect) return;
      ctx.strokeStyle = color;
      ctx.lineWidth = lineWidth;
-     ctx.setLineDash([]); // Ensure solid line
+     ctx.setLineDash([]); 
 
      const x = Number.isFinite(rect.x) ? rect.x : (Number.isFinite(rect.left) ? rect.left : 0);
      const y = Number.isFinite(rect.y) ? rect.y : (Number.isFinite(rect.top) ? rect.top : 0);

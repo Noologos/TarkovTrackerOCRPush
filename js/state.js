@@ -24,7 +24,6 @@ export let kappaWorker = null;
 // Discriminant images (loaded at startup)
 export let discriminantImage1 = null;
 export let discriminantImage2 = null;
-// export let gridSlotImage = null; // <-- REMOVED
 
 
 // --- Factory Functions for State Parts ---
@@ -53,9 +52,9 @@ export function updateTaskImage(taskName, image) {
 export function updateTaskProcessingResults(taskName, results) {
     if (tasks[taskName]) tasks[taskName].processingResults = results;
 }
-export function resetTaskProcessingResults(taskName) { 
+export function resetTaskProcessingResults(taskName) {
     if (tasks[taskName]) {
-        tasks[taskName].processingResults = createInitialTaskProcessingResults(); 
+        tasks[taskName].processingResults = createInitialTaskProcessingResults();
     }
 }
 export function resetTaskIdentifiedCompletedIds(taskName) {
@@ -111,13 +110,10 @@ export function setKappaWorker(workerInstance) {
     kappaWorker = workerInstance;
 }
 
-// Discriminant Image Mutators (gridSlotImage removed)
+// Discriminant Image Mutators
 export function setDiscriminantImage1(image) {
     discriminantImage1 = image;
 }
 export function setDiscriminantImage2(image) {
     discriminantImage2 = image;
 }
-// export function setGridSlotImage(image) { // <-- REMOVED
-//     gridSlotImage = image;
-// }
