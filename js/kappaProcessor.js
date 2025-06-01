@@ -4,7 +4,6 @@ import * as Config from './config.js';
 import * as DOM from './dom.js';
 import { reportKappaStatus, reportKappaOutput, showKappaSpinner, drawKappaImageOnCanvas, displayMatchedKappaItems } from './uiKappa.js';
 import { updateButtonStates } from './main.js';
-// Import specific functions needed from ui.js
 import { updateCollapsibleVisibility, showGlobalSpinner, setButtonEnabled } from './ui.js';
 
 
@@ -21,10 +20,10 @@ export async function processKappaImage() {
     const wasGlobalSpinnerActive = DOM.globalSpinnerOverlay?.style.display === 'flex';
 
     showKappaSpinner(true); 
-    if (!wasGlobalSpinnerActive) { 
-        setButtonEnabled(DOM.processAllButton, false); 
+    if (!wasGlobalSpinnerActive) {
+        setButtonEnabled(DOM.processAllButton, false);
     }
-    updateButtonStates();
+    updateButtonStates(); 
 
 
     reportKappaStatus('Preparing data for Kappa processing worker...');
